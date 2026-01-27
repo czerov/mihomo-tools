@@ -57,10 +57,32 @@ case $choice in
         add_cron "0 4 * * *" "${SCRIPT_PATH}/update_geo.sh" "Geo数据库更新"
         ;;
     3)
-        # 每天 05:00 运行 manage_config (需传入 update 参数)
-        # 注意：这里需要确保 manage_config.sh 知道默认 URL，或者在此处指定
-        add_cron "0 5 * * *" "${SCRIPT_PATH}/manage_config.sh update" "订阅配置更新"
+        echo "-----------------------------------"
+        echo "当前已保存的订阅链接: ${SUB_URL:-未设置}"
+        
+        if [ -z "$SUB_URL" ]; then
+            echo -e "${RED}警告：尚未设置订阅链接！${NC}"
+            read -p "请输入订阅链接: " new_url
+            # 调用 manage_config 去保存它 (利用 sed 技巧或直接追加)
+            # 这里简单处理，建议先去菜单3设置好链接再来这里
+            echo "请先去 [菜单 3] -> [手动输入] 并选择保存链接，然后再来设置定时任务。"
+            exit 1
+        fi
+
+        echo "请输入自动更新的时间 (Crontab 格式)"
+        echo "常用格式示例："
+        echo "  0 4 * * * (每天凌晨 4 点)"
+        echo "  30 5 * * * (每天早上 5:30)"
+        echo "  0 */12 * * * (每 12 小时更新一次)"
+        read -p "请输入时间表达式 [默认: 0 5 * * *]: " time_input
+        
+        # 默认值处理
+        if [ -z "$time_input" ]; then time_input="0 5 * * *"; fi
+        
+        # 添加任务：注意这里不需要再传 URL 参数了，因为 manage_config 会自己去读 .env
+        add_cron "$time_input" "${SCRIPT_PATH}/manage_config.sh update" "订阅自动更新"
         ;;
+    # ...
     4)
         remove_cron
         ;;
