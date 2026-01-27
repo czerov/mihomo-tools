@@ -201,7 +201,7 @@
                     </div>
                     <hr class="border-secondary">
                     <div class="text-end">
-                        <button class="btn btn-secondary" onclick="saveSettings(false)">
+                        <button class="btn btn-primary" onclick="saveSettings(false)">
                             <i class="bi bi-save"></i> 仅保存设置
                         </button>
                     </div>
@@ -300,8 +300,6 @@
         if(tabTrigger) {
             const tabInstance = new bootstrap.Tab(tabTrigger);
             tabInstance.show();
-            
-            // [修复1] 补全初始化逻辑：如果是通知页，也需要加载设置
             if(activeTabId === 'tab-tasks-btn') loadConfig();
             if(activeTabId === 'tab-notify-btn') loadSettings(); 
             if(activeTabId === 'tab-logs-btn') loadLogs();
@@ -353,7 +351,7 @@
 
     function loadSettings() {
         api('/settings').then(res => {
-            // [修复2] 强制类型转换，解决后端返回 "false" 字符串导致前端判定为 true 的问题
+            // 类型容错处理
             const isTrue = (val) => val === true || val === 'true';
 
             document.getElementById('notify_tg').checked = isTrue(res.notify_tg);
@@ -365,7 +363,7 @@
             
             if(document.getElementById('sub_url')) document.getElementById('sub_url').value = res.sub_url; 
             
-            // 自动化任务部分的修复
+            // 自动化任务部分
             if(document.getElementById('cron_sub_enabled')) 
                 document.getElementById('cron_sub_enabled').checked = isTrue(res.cron_sub_enabled);
             
@@ -381,16 +379,21 @@
     }
 
     async function saveSettings(silent = false) {
+        // 重要：将 Boolean 强制转换为 String 发送，
+        // 这样可以兼容只接受 "true"/"false" 字符串的后端
         const res = await api('/settings', {
-            notify_tg: document.getElementById('notify_tg').checked,
+            notify_tg: String(document.getElementById('notify_tg').checked),
             tg_token: document.getElementById('tg_token').value,
             tg_id: document.getElementById('tg_id').value,
-            notify_api: document.getElementById('notify_api').checked,
+            notify_api: String(document.getElementById('notify_api').checked),
             api_url: document.getElementById('api_url').value,
+            
             sub_url: document.getElementById('sub_url') ? document.getElementById('sub_url').value : '',
-            cron_sub_enabled: document.getElementById('cron_sub_enabled') ? document.getElementById('cron_sub_enabled').checked : false,
+            
+            // 自动化任务字段 (强制转换 String)
+            cron_sub_enabled: document.getElementById('cron_sub_enabled') ? String(document.getElementById('cron_sub_enabled').checked) : 'false',
             cron_sub_sched: document.getElementById('cron_sub_sched') ? document.getElementById('cron_sub_sched').value : '',
-            cron_geo_enabled: document.getElementById('cron_geo_enabled') ? document.getElementById('cron_geo_enabled').checked : false,
+            cron_geo_enabled: document.getElementById('cron_geo_enabled') ? String(document.getElementById('cron_geo_enabled').checked) : 'false',
             cron_geo_sched: document.getElementById('cron_geo_sched') ? document.getElementById('cron_geo_sched').value : ''
         });
         if(!silent) alert(res.message);
