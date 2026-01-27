@@ -1,41 +1,30 @@
 #!/bin/bash
 
-if [ -f "/etc/mihomo/.env" ]; then source /etc/mihomo/.env; else echo "错误：未找到 .env"; exit 1; fi
+# 1. 加载配置
+if [ -f "/etc/mihomo/.env" ]; then source /etc/mihomo/.env; fi
 
-mkdir -p "$DATA_PATH"
-BASE_URL="${GH_PROXY}https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest"
-FILES=("geoip.dat|geoip-lite.dat" "geosite.dat|geosite.dat" "country.mmdb|country-lite.mmdb")
+DATA_DIR="${DATA_PATH}"
+GH_PROXY="${GH_PROXY:-https://gh-proxy.com/}"
 
-echo "正在准备更新 Geo 数据库..."
+mkdir -p "$DATA_DIR"
 
-download_file() {
-    local target_name=$1
-    local source_name=$2
-    local url="${BASE_URL}/${source_name}"
-    local temp_file="/tmp/${target_name}"
+echo "正在下载 GeoIP..."
+curl -L -o "${DATA_DIR}/geoip.dat" "${GH_PROXY}https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.dat"
 
-    echo "⬇️  正在下载: ${target_name} ..."
-    curl -L -o "$temp_file" "$url"
+echo "正在下载 GeoSite..."
+curl -L -o "${DATA_DIR}/geosite.dat" "${GH_PROXY}https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat"
 
-    if [ -s "$temp_file" ]; then
-        mv "$temp_file" "${DATA_PATH}/${target_name}"
-        echo "✅ ${target_name} 更新成功。"
-    else
-        echo "❌ ${target_name} 下载失败！"
-        rm -f "$temp_file"
-    fi
-}
+echo "正在下载 Country.mmdb..."
+curl -L -o "${DATA_DIR}/Country.mmdb" "${GH_PROXY}https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/country.mmdb"
 
-for item in "${FILES[@]}"; do
-    TARGET_NAME=${item%%|*}
-    SOURCE_NAME=${item##*|}
-    download_file "$TARGET_NAME" "$SOURCE_NAME"
-done
+echo "✅ Geo 数据库更新完成。"
 
-echo "-----------------------------------"
-echo "数据库更新完毕，正在重启服务..."
-systemctl restart mihomo
-echo "完成！"
-
-# --- 埋点：更新完成通知 ---
-bash ${SCRIPT_PATH}/notify.sh "Mihomo 通知" "GeoIP/Geosite 数据库已自动更新完成，服务已重启。"
+# ==========================================
+# 修复：只有服务存在且运行时，才尝试重启
+# ==========================================
+if systemctl is-active --quiet mihomo.service; then
+    echo "🔄 正在重启 Mihomo 以应用更改..."
+    systemctl restart mihomo
+else
+    echo "ℹ️ 服务未运行，跳过重启。"
+fi
