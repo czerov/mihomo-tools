@@ -1,34 +1,46 @@
 #!/bin/bash
+# scripts/notify.sh
+# 用法: bash notify.sh "标题" "内容"
 
-# 1. 导入基础环境
+# 1. 导入环境变量
 if [ -f "/etc/mihomo/.env" ]; then
     source /etc/mihomo/.env
 else
     exit 0
 fi
 
-# 2. 检查是否配置了通知地址
-if [ -z "$NOTIFY_URL" ]; then
-    # 没配置就不发，也不报错，静默退出
-    exit 0
-fi
-
-# 3. 获取参数
-# 用法: bash notify.sh "标题" "内容"
+# 2. 获取参数
 TITLE="$1"
-CONTENT="$2"
+RAW_CONTENT="$2"
 TIME=$(date "+%Y-%m-%d %H:%M:%S")
 
-# 内容追加时间戳，更清晰
-FULL_CONTENT="[${TIME}] ${CONTENT}"
+# 3. 格式化内容 (增加时间戳)
+MSG_TEXT="[${TIME}] ${RAW_CONTENT}"
 
-# 4. 发送 Webhook (POST JSON)
-# 注意：这里简单的处理了 JSON 格式，如果内容里有双引号可能会导致 JSON 格式错误
-# 但为了保持轻量（不依赖 jq），暂时这样处理，日常使用足够
-curl -s -o /dev/null -X POST \
-     -H "Content-Type: application/json" \
-     -d "{\"title\": \"${TITLE}\", \"content\": \"${FULL_CONTENT}\"}" \
-     "${NOTIFY_URL}"
+# --- 发送逻辑 ---
 
-# 仅供调试用，实际运行静默
-# echo "通知已发送: $TITLE"
+# [通道 A] Telegram
+# 逻辑：开关必须为 true，且 Token 和 ChatID 不能为空
+if [[ "$NOTIFY_TG" == "true" && -n "$TG_BOT_TOKEN" && -n "$TG_CHAT_ID" ]]; then
+    # Telegram 使用 HTML 格式，需要简单的换行符处理
+    TG_MSG="<b>${TITLE}</b>%0A${MSG_TEXT}"
+    
+    curl -s -o /dev/null -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
+        -d chat_id="${TG_CHAT_ID}" \
+        -d text="${TG_MSG}" \
+        -d parse_mode="HTML"
+fi
+
+# [通道 B] 自定义 Webhook API
+# 逻辑：开关必须为 true，且 URL 不能为空
+if [[ "$NOTIFY_API" == "true" && -n "$NOTIFY_API_URL" ]]; then
+    # 简单的 JSON 转义处理 (防止内容里的双引号破坏 JSON 结构)
+    # 将内容中的 " 替换为 \"
+    SAFE_TITLE=$(echo "$TITLE" | sed 's/"/\\"/g')
+    SAFE_CONTENT=$(echo "$MSG_TEXT" | sed 's/"/\\"/g')
+
+    curl -s -o /dev/null -X POST \
+        -H "Content-Type: application/json" \
+        -d "{\"title\": \"${SAFE_TITLE}\", \"message\": \"${SAFE_CONTENT}\"}" \
+        "$NOTIFY_API_URL"
+fi
