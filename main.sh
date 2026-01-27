@@ -23,16 +23,17 @@ fi
 show_menu() {
     clear
     echo -e "${GREEN}====================================${NC}"
-    echo -e "${GREEN}    Mihomo 模块化管理工具 (2026版)   ${NC}"
+    echo -e "${GREEN}    Mihomo 模块化管理工具   ${NC}"
     echo -e "${GREEN}====================================${NC}"
     echo -e "1. 安装/更新 内核 (install_kernel)"
     echo -e "2. 管理服务 (启动/停止/重启) - [待开发]"
     echo -e "3. 更新配置 (Sub-Store/本地) - [待开发]"
     echo -e "4. 查看实时日志 - [待开发]"
     echo -e "5. 设置自动更新与自修复 - [待开发]"
+    echo -e "6. 更新 Geo 数据库 (geoip/geosite)"
     echo -e "0. 退出脚本"
     echo -e "${GREEN}====================================${NC}"
-    read -p "请输入选项 [0-5]: " choice
+    read -p "请输入选项 [0-6]: " choice
 }
 
 # 5. 逻辑分发
@@ -87,5 +88,10 @@ while true; do
             echo -e "${RED}无效选项，请重新选择${NC}"
             sleep 1
             ;;
+        4)
+            # 调用 Geo 更新模块
+            bash ${SCRIPT_PATH}/update_geo.sh
+            read -n 1 -s -r -p "按任意键返回菜单..."
+            ;;    
     esac
 done
