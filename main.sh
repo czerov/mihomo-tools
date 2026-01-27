@@ -59,7 +59,7 @@ show_menu() {
     echo -e "6. 更新 Geo 数据库 (geoip/geosite)"
     echo -e "7. 通知的配置与测试"
     echo -e "8. 初始化网关网络 (TUN模式前置)" 
-    echo -e "9. 切换 Web 面板 (Zashboard/Yacd...)"  
+    echo -e "9. 切换 Web 面板 (Zashboard/Yacd)"  
     echo -e "${RED}10. 卸载 Mihomo 工具箱${NC}"      
     echo -e "0. 退出脚本"
     echo -e "${GREEN}===========================================${NC}"
