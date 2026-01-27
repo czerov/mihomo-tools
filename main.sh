@@ -40,8 +40,27 @@ while true; do
     show_menu
     case $choice in
         1)
-            # 调用我们上一拍写好的脚本
+            # 调用内核安装模块
             bash ${SCRIPT_PATH}/install_kernel.sh
+            read -n 1 -s -r -p "按任意键返回菜单..."
+            ;;
+        2)
+            # 调用服务管理模块
+            echo -e "\n${GREEN}[服务管理]${NC}"
+            echo "1. 启动 | 2. 停止 | 3. 重启 | 4. 状态"
+            read -p "请选择动作: " svc_action
+            case $svc_action in
+                1) bash ${SCRIPT_PATH}/service_ctl.sh start ;;
+                2) bash ${SCRIPT_PATH}/service_ctl.sh stop ;;
+                3) bash ${SCRIPT_PATH}/service_ctl.sh restart ;;
+                4) bash ${SCRIPT_PATH}/service_ctl.sh status ;;
+                *) echo "无效指令" ;;
+            esac
+            read -n 1 -s -r -p "按任意键返回菜单..."
+            ;;
+        3)
+            # 预留：订阅管理模块
+            echo -e "${RED}订阅管理功能开发中...${NC}"
             read -n 1 -s -r -p "按任意键返回菜单..."
             ;;
         0)
