@@ -11,6 +11,7 @@ fi
 # 2. 定义颜色
 GREEN='\033[0;32m'
 RED='\033[0;31m'
+YELLOW='\033[0;33m'
 NC='\033[0m' # No Color
 
 # 3. 权限检查
@@ -19,7 +20,7 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-# 4. 主菜单函数
+# 4. 辅助函数：获取状态和版本
 get_status() {
     if systemctl is-active --quiet mihomo; then
         echo -e "${GREEN}● 运行中${NC}"
@@ -31,12 +32,14 @@ get_status() {
 get_version() {
     if [ -f "${MIHOMO_PATH}/mihomo" ]; then
         # 获取版本号 (例如 v1.18.1)
-        ${MIHOMO_PATH}/mihomo -v | head -n 1 | awk '{print $3}'
+        VER=$(${MIHOMO_PATH}/mihomo -v 2>/dev/null | head -n 1 | awk '{print $3}')
+        echo "${VER}"
     else
         echo "未安装"
     fi
 }
 
+# 5. 主菜单函数
 show_menu() {
     clear
     # 动态获取状态
@@ -44,12 +47,12 @@ show_menu() {
     local version=$(get_version)
     
     echo -e "${GREEN}===========================================${NC}"
-    echo -e "${GREEN}   Mihomo 模块化管理工具 (2026 Pro版)   ${NC}"
+    echo -e "${GREEN}    Mihomo 模块化管理工具 (2026 Pro版)   ${NC}"
     echo -e "${GREEN}===========================================${NC}"
-    echo -e " 状态: ${status}    内核版本: ${GREEN}${version}${NC}"
+    echo -e " 运行状态: ${status}    内核版本: ${YELLOW}${version}${NC}"
     echo -e "${GREEN}-------------------------------------------${NC}"
     echo -e "1. 安装/更新 内核 (install_kernel)"
-    echo -e "2. 管理服务 (启动/停止/重启)"
+    echo -e "2. 管理服务 (启动/停止/重启/状态)"
     echo -e "3. 配置与订阅 (设置链接/手动更新)"
     echo -e "4. 查看实时日志 (view_log)"
     echo -e "5. 自动化任务 (看门狗/定时更新订阅)"
@@ -59,17 +62,15 @@ show_menu() {
     read -p "请输入选项 [0-6]: " choice
 }
 
-# 5. 逻辑分发
+# 6. 逻辑分发
 while true; do
     show_menu
     case $choice in
         1)
-            # --- 积木 1：内核安装 ---
             bash ${SCRIPT_PATH}/install_kernel.sh
             read -n 1 -s -r -p "按任意键返回菜单..."
             ;;
         2)
-            # --- 积木 2：服务管理 ---
             echo -e "\n${GREEN}[服务管理]${NC}"
             echo "1. 启动 | 2. 停止 | 3. 重启 | 4. 状态"
             read -p "请选择动作: " svc_action
@@ -83,16 +84,16 @@ while true; do
             read -n 1 -s -r -p "按任意键返回菜单..."
             ;;
         3)
-            # --- 积木 3：配置管理 ---
             echo -e "\n${GREEN}[配置管理]${NC}"
             echo "1. 从 Sub-Store/URL 更新配置 (读取 .env)"
-            echo "2. 手动输入 URL 更新"
+            echo "2. 手动输入 URL 更新 (支持保存)"
             echo "3. 本地编辑配置 (安全模式)"
             read -p "请选择: " cfg_action
             case $cfg_action in
                 1) bash ${SCRIPT_PATH}/manage_config.sh update ;;
                 2)
                     read -p "请输入订阅链接: " manual_url
+                    # 传入 URL 参数
                     bash ${SCRIPT_PATH}/manage_config.sh update "$manual_url"
                     ;;
                 3) bash ${SCRIPT_PATH}/manage_config.sh edit ;;
@@ -101,17 +102,13 @@ while true; do
             read -n 1 -s -r -p "按任意键返回菜单..."
             ;;
         4)
-            # --- 积木 5：查看日志 ---
             bash ${SCRIPT_PATH}/view_log.sh
-            # 日志查看结束后（用户按Ctrl+C），不需要暂停，直接回菜单更流畅
             ;;
         5)
-            # --- 积木 6：自动化管理 ---
             bash ${SCRIPT_PATH}/cron_manager.sh
             read -n 1 -s -r -p "按任意键返回菜单..."
             ;;
         6)
-            # --- 积木 4：Geo 更新 (对应你改的数字 6) ---
             bash ${SCRIPT_PATH}/update_geo.sh
             read -n 1 -s -r -p "按任意键返回菜单..."
             ;;
