@@ -4,7 +4,7 @@
 # Mihomo 一键部署脚本
 # ==========================================
 
-# 1. 自动获取脚本所在目录 (关键修复：无论在哪运行都能找到资源)
+# 1. 自动获取脚本所在目录
 SCRIPT_ROOT=$(dirname "$(readlink -f "$0")")
 
 # 颜色定义
@@ -24,7 +24,6 @@ echo -e "${GREEN}>>> 开始安装 Mihomo 管理工具...${NC}"
 echo "资源目录锁定为: ${SCRIPT_ROOT}"
 
 # 2. 安装系统依赖
-# 新增: unzip (解压面板), iptables (网关必备)
 echo -e "${YELLOW}[1/7] 安装系统基础依赖...${NC}"
 apt update -qq
 apt install -y git curl tar gzip nano cron ca-certificates iptables unzip > /dev/null 2>&1
@@ -36,24 +35,30 @@ mkdir -p "${SCRIPTS_DIR}"
 mkdir -p "${MIHOMO_DIR}/data"
 mkdir -p "${UI_DIR}"
 
-# 复制 scripts 目录下的所有脚本
 cp -rf "${SCRIPT_ROOT}/scripts/"* "${SCRIPTS_DIR}/"
-# 复制主程序
 cp -f "${SCRIPT_ROOT}/main.sh" "${BIN_PATH}"
 
-# 赋予执行权限
 chmod +x "${BIN_PATH}"
 chmod +x "${SCRIPTS_DIR}"/*.sh
 
 echo "✅ 脚本已部署。"
 
-# 3.1 修复 LXC 容器日志缺失问题
+# 3.1 修复 LXC 日志缺失问题 (兼容模式 - 修复报错)
 echo -e "${YELLOW}[3/7] 优化系统日志 (Fix Journald)...${NC}"
+# 1. 手动创建目录
 mkdir -p /var/log/journal
-# 强制 systemd 使用磁盘记录日志
-systemd-tmpfiles --create --prefix /var/log/journal >/dev/null 2>&1
-systemctl restart systemd-journald
-echo "✅ 日志服务已修复。"
+
+# 2. 修改配置文件强制开启 (比 systemd-tmpfiles 更稳)
+if ! grep -q "^Storage=persistent" /etc/systemd/journald.conf; then
+    # 先注释掉已有的 Storage 设置 (防止冲突)
+    sed -i 's/^Storage=/#Storage=/' /etc/systemd/journald.conf
+    # 添加强制持久化
+    echo "Storage=persistent" >> /etc/systemd/journald.conf
+fi
+
+# 3. 尝试重启服务 (如果不成功则忽略，重启容器后会自动生效)
+systemctl restart systemd-journald >/dev/null 2>&1 || echo -e "ℹ️  日志配置生效中 (将在容器重启后完全就绪)"
+echo "✅ 日志配置已完成。"
 
 # 4. 生成默认配置 (.env)
 echo -e "${YELLOW}[4/7] 初始化环境配置...${NC}"
@@ -68,7 +73,6 @@ echo "✅ 配置文件 .env 已生成。"
 
 # 5. 初始化网关网络
 echo -e "${YELLOW}[5/7] 初始化网关网络环境...${NC}"
-# 调用网关初始化脚本 (修复 Docker 网络、开启转发)
 bash "${SCRIPTS_DIR}/gateway_init.sh"
 
 # 6. 下载资源 (Geo + 内核 + UI)
@@ -78,25 +82,16 @@ echo "--> [1/3] 更新 GeoIP/GeoSite..."
 bash "${SCRIPTS_DIR}/update_geo.sh" > /dev/null
 
 echo "--> [2/3] 安装 Mihomo 内核..."
-# 使用 auto 参数进行静默安装
 bash "${SCRIPTS_DIR}/install_kernel.sh" "auto"
 
 echo "--> [3/3] 下载 Web 面板 (Zashboard)..."
-# 默认安装 Zashboard 面板
 UI_URL="https://gh-proxy.com/https://github.com/Zephyruso/zashboard/archive/refs/heads/gh-pages.zip"
 
 curl -L -o /tmp/ui.zip "$UI_URL"
 if [ $? -eq 0 ]; then
-    # 清空旧面板
     rm -rf "${UI_DIR:?}"/*
-    
-    # 解压
     unzip -o -q /tmp/ui.zip -d /tmp/ui_extract
-    
-    # 移动文件 (GitHub 压缩包通常有一层文件夹，用 */* 匹配内部内容)
     cp -rf /tmp/ui_extract/*/* "${UI_DIR}/"
-    
-    # 清理临时文件
     rm -rf /tmp/ui.zip /tmp/ui_extract
     echo "✅ Zashboard 面板已安装到 ${UI_DIR}"
 else
