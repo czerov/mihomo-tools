@@ -57,7 +57,8 @@ show_menu() {
     echo -e "4. 查看实时日志 (view_log)"
     echo -e "5. 自动化任务 (看门狗/定时更新订阅)"
     echo -e "6. 更新 Geo 数据库 (geoip/geosite)"
-    echo -e "7. 通知的配置与测试"  # <--- 新增这一行
+    echo -e "7. 通知的配置与测试"
+    echo -e "8. 初始化网关网络 (TUN模式前置)"  # <--- 新增
     echo -e "0. 退出脚本"
     echo -e "${GREEN}===========================================${NC}"
     read -p "请输入选项 [0-7]: " choice  
@@ -116,6 +117,11 @@ while true; do
         7)
             # --- 积木 7：通知配置 ---
             bash ${SCRIPT_PATH}/set_notify.sh
+            read -n 1 -s -r -p "按任意键返回菜单..."
+            ;;    
+        8)
+            # --- 积木 8：一键网络初始化 ---
+            bash ${SCRIPT_PATH}/gateway_init.sh
             read -n 1 -s -r -p "按任意键返回菜单..."
             ;;    
         0)
