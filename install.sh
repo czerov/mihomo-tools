@@ -68,10 +68,7 @@ bash "${SCRIPTS_DIR}/update_geo.sh" > /dev/null
 
 # 5.2 安装 Mihomo 内核 (默认安装最新版)
 echo "--> 正在下载 Mihomo 内核..."
-# 注意：你需要确保 install_kernel.sh 支持无交互运行，或者这里简单调用
-# 如果 install_kernel.sh 里有 read 交互，这里会被卡住。
-# 建议修改 install_kernel.sh 让它支持参数，或者这里直接写简单的下载逻辑
-bash "${SCRIPTS_DIR}/install_kernel.sh" "latest" 
+bash "${SCRIPTS_DIR}/install_kernel.sh" "auto"
 
 # 6. 注册 Systemd 服务
 echo -e "${YELLOW}[6/6] 注册系统服务...${NC}"
