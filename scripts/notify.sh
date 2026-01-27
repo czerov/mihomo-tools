@@ -16,7 +16,7 @@ if [[ "$NOTIFY_TG" == "true" && -n "$TG_BOT_TOKEN" && -n "$TG_CHAT_ID" ]]; then
     # 构造消息结构:
     # 标题 (加粗)
     # 内容
-    # 📅 YYYY-MM-DD HH:MM:SS (移到了最后)
+    # 📅 YYYY-MM-DD HH:MM:SS (放在最后)
     TG_MSG="<b>${TITLE}</b>%0A${CONTENT}%0A%0A📅 ${CURRENT_TIME}"
     
     curl -s -o /dev/null -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
@@ -30,7 +30,7 @@ if [[ "$NOTIFY_API" == "true" && -n "$NOTIFY_API_URL" ]]; then
     # 构造内容: 内容 [时间]
     API_MSG="${CONTENT} [${CURRENT_TIME}]"
     
-    # JSON 转义处理
+    # JSON 转义处理 (防止双引号破坏 JSON)
     SAFE_TITLE=$(echo "$TITLE" | sed 's/"/\\"/g')
     SAFE_MSG=$(echo "$API_MSG" | sed 's/"/\\"/g')
 
