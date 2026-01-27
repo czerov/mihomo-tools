@@ -59,8 +59,24 @@ while true; do
             read -n 1 -s -r -p "按任意键返回菜单..."
             ;;
         3)
-            # 预留：订阅管理模块
-            echo -e "${RED}订阅管理功能开发中...${NC}"
+            echo -e "\n${GREEN}[配置管理]${NC}"
+            echo "1. 从 Sub-Store/URL 更新配置 (读取 .env)"
+            echo "2. 手动输入 URL 更新"
+            echo "3. 本地编辑配置 (安全模式)"
+            read -p "请选择: " cfg_action
+            case $cfg_action in
+                1) 
+                    bash ${SCRIPT_PATH}/manage_config.sh update 
+                    ;;
+                2)
+                    read -p "请输入订阅链接: " manual_url
+                    bash ${SCRIPT_PATH}/manage_config.sh update "$manual_url"
+                    ;;
+                3)
+                    bash ${SCRIPT_PATH}/manage_config.sh edit
+                    ;;
+                *) echo "无效指令" ;;
+            esac
             read -n 1 -s -r -p "按任意键返回菜单..."
             ;;
         0)
