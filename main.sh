@@ -78,8 +78,9 @@ while true; do
             read -n 1 -s -r -p "按任意键返回菜单..."
             ;;
         4)
-            echo "功能 [查看日志] 尚未开发..."
-            sleep 1
+            # --- 积木 5：查看日志 (已点亮) ---
+            bash ${SCRIPT_PATH}/view_log.sh
+            # 日志查看结束后（用户按Ctrl+C），不需要暂停，直接回菜单更流畅
             ;;
         5)
             echo "功能 [自动更新] 尚未开发..."
