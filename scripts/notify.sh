@@ -7,7 +7,7 @@ if [ -f "/etc/mihomo/.env" ]; then source /etc/mihomo/.env; fi
 TITLE="$1"
 CONTENT="$2"
 # 获取当前时间
-TIME_STR=$(date "+%Y-%m-%d %H:%M:%S")
+TIME_STR=$(TZ=Asia/Shanghai date "+%Y-%m-%d %H:%M:%S")
 
 # --- 发送逻辑 ---
 
