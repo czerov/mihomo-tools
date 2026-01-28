@@ -40,7 +40,6 @@
 
         body { background-color: var(--bg-body); color: var(--text-main); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; transition: background-color 0.3s; }
         
-        /* --- PC端侧边栏 --- */
         .sidebar { 
             background: var(--bg-sidebar); 
             min-height: 100vh; 
@@ -57,7 +56,6 @@
         .mobile-header { display: none !important; }
         .overlay { display: none !important; }
 
-        /* --- 移动端适配 --- */
         @media (max-width: 768px) {
             .sidebar { 
                 position: fixed !important;
@@ -176,6 +174,12 @@
         <button class="nav-link" id="tab-tasks-btn" data-bs-toggle="pill" data-bs-target="#tab-tasks" onclick="loadSettings(); closeSidebar()"><i class="bi bi-sliders"></i> 订阅与任务</button>
         <button class="nav-link" id="tab-notify-btn" data-bs-toggle="pill" data-bs-target="#tab-notify" onclick="loadSettings(); closeSidebar()"><i class="bi bi-bell"></i> 通知中心</button>
         <button class="nav-link" id="tab-logs-btn" data-bs-toggle="pill" data-bs-target="#tab-logs" onclick="closeSidebar()"><i class="bi bi-terminal"></i> 运行日志</button>
+    </div>
+
+    <div class="mt-auto ps-2 pb-3">
+        <a href="/logout" class="btn btn-sm btn-outline-danger w-100 border-0 text-start">
+            <i class="bi bi-box-arrow-left me-2"></i> 退出登录
+        </a>
     </div>
 </div>
 
@@ -439,9 +443,9 @@
         const opts = data ? { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) } : {};
         const resp = await fetch('/api'+path, opts);
         
-        // 鉴权跳转逻辑
+        // 【核心修改】检测到未授权，跳转到登录页
         if (resp.status === 401) {
-            window.location.href = '/auth';
+            window.location.href = '/login';
             return;
         }
         
@@ -497,13 +501,13 @@
             if(document.getElementById('cron_geo_enabled')) document.getElementById('cron_geo_enabled').checked = isTrue(res.cron_geo_enabled);
             if(document.getElementById('cron_geo_sched')) document.getElementById('cron_geo_sched').value = res.cron_geo_sched;
             
-            // 【核心修复】删除了这里读取 web_user 的代码，因为 input 已经被删了
+            // 已移除 web_user 回显
         });
     }
 
     async function saveSettings(silent = false) {
         const res = await api('/settings', {
-            // 【核心修复】删除了 web_user/web_secret 的回传代码
+            // 已移除 web_user/web_secret 字段
             notify_tg: String(document.getElementById('notify_tg').checked),
             tg_token: document.getElementById('tg_token').value,
             tg_id: document.getElementById('tg_id').value,
