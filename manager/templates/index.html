@@ -40,6 +40,7 @@
 
         body { background-color: var(--bg-body); color: var(--text-main); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; transition: background-color 0.3s; }
         
+        /* --- PC端侧边栏 --- */
         .sidebar { 
             background: var(--bg-sidebar); 
             min-height: 100vh; 
@@ -56,6 +57,7 @@
         .mobile-header { display: none !important; }
         .overlay { display: none !important; }
 
+        /* --- 移动端适配 --- */
         @media (max-width: 768px) {
             .sidebar { 
                 position: fixed !important;
@@ -151,9 +153,14 @@
             <h5 class="fw-bold m-0">Mihomo</h5>
         </div>
     </div>
-    <button class="btn btn-sm btn-outline-secondary border-0" onclick="toggleTheme()">
-        <i class="bi bi-moon-stars-fill" id="theme-icon-mobile"></i>
-    </button>
+    <div class="d-flex align-items-center">
+        <button class="btn btn-sm btn-outline-secondary border-0 me-2" onclick="window.location.reload()" title="刷新页面">
+            <i class="bi bi-arrow-clockwise" style="font-size: 1.2rem;"></i>
+        </button>
+        <button class="btn btn-sm btn-outline-secondary border-0" onclick="toggleTheme()">
+            <i class="bi bi-moon-stars-fill" id="theme-icon-mobile"></i>
+        </button>
+    </div>
 </div>
 
 <div class="overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
@@ -443,7 +450,7 @@
         const opts = data ? { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) } : {};
         const resp = await fetch('/api'+path, opts);
         
-        // 【核心修改】检测到未授权，跳转到登录页
+        // 遇到 401 (未登录)，跳到登录页
         if (resp.status === 401) {
             window.location.href = '/login';
             return;
@@ -500,14 +507,11 @@
             if(document.getElementById('cron_sub_sched')) document.getElementById('cron_sub_sched').value = res.cron_sub_sched;
             if(document.getElementById('cron_geo_enabled')) document.getElementById('cron_geo_enabled').checked = isTrue(res.cron_geo_enabled);
             if(document.getElementById('cron_geo_sched')) document.getElementById('cron_geo_sched').value = res.cron_geo_sched;
-            
-            // 已移除 web_user 回显
         });
     }
 
     async function saveSettings(silent = false) {
         const res = await api('/settings', {
-            // 已移除 web_user/web_secret 字段
             notify_tg: String(document.getElementById('notify_tg').checked),
             tg_token: document.getElementById('tg_token').value,
             tg_id: document.getElementById('tg_id').value,
