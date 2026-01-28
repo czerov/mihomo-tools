@@ -40,7 +40,7 @@
 
         body { background-color: var(--bg-body); color: var(--text-main); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; transition: background-color 0.3s; }
         
-        /* --- 侧边栏 (PC端) --- */
+        /* --- PC端侧边栏 --- */
         .sidebar { 
             background: var(--bg-sidebar); 
             min-height: 100vh; 
@@ -48,28 +48,35 @@
             border-right: 1px solid var(--border-color); 
             width: 260px; 
             position: fixed; 
+            top: 0; left: 0;
             z-index: 1040; 
             transition: transform 0.3s ease-in-out, background-color 0.3s; 
         }
         
         .content-area { margin-left: 260px; padding: 30px; transition: margin-left 0.3s; }
+        .mobile-header { display: none !important; }
+        .overlay { display: none !important; }
 
-        /* --- 移动端适配 (核心改动) --- */
+        /* --- 移动端适配 --- */
         @media (max-width: 768px) {
-            /* 1. 侧边栏改为抽屉式 */
             .sidebar { 
-                transform: translateX(-100%); /* 默认移出屏幕 */
-                width: 280px; 
-                height: 100vh;
-                top: 0; left: 0;
+                position: fixed !important;
+                top: 0 !important; left: 0 !important;
+                width: 280px !important; 
+                height: 100vh !important;
+                transform: translateX(-100%);
                 box-shadow: 4px 0 12px rgba(0,0,0,0.1);
+                border-right: none !important;
+                z-index: 9999 !important;
             }
-            .sidebar.show { transform: translateX(0); } /* 激活时滑入 */
+            .sidebar.show { transform: translateX(0); }
             
-            /* 2. 内容区域填满，不需要左边距 */
-            .content-area { margin-left: 0; padding: 20px; padding-top: 80px; /* 留出顶部栏高度 */ }
+            .content-area { 
+                margin-left: 0 !important; 
+                padding: 15px !important; 
+                padding-top: 80px !important; 
+            }
             
-            /* 3. 移动端顶部栏 (仅手机可见) */
             .mobile-header {
                 display: flex !important;
                 align-items: center;
@@ -83,29 +90,21 @@
                 z-index: 1030;
             }
             
-            /* 4. 遮罩层 */
             .overlay {
+                display: block !important;
                 position: fixed;
                 top: 0; left: 0; right: 0; bottom: 0;
                 background: rgba(0,0,0,0.5);
-                z-index: 1035;
+                z-index: 9000 !important;
                 opacity: 0;
                 visibility: hidden;
                 transition: opacity 0.3s;
                 backdrop-filter: blur(2px);
             }
             .overlay.show { opacity: 1; visibility: visible; }
-            
-            /* 隐藏侧边栏里的 Logo (因为移动端顶部有了) */
             .sidebar-logo-area { display: none !important; }
         }
-        
-        /* PC端隐藏移动头 */
-        .mobile-header { display: none; }
-        .overlay { display: none; } /* PC端不需要遮罩 */
-        @media (max-width: 768px) { .overlay { display: block; } }
 
-        /* 通用样式保持不变 */
         .nav-link { color: var(--text-muted); margin-bottom: 8px; border-radius: 8px; font-weight: 500; padding: 12px; transition: all 0.2s; cursor: pointer; }
         .nav-link:hover { background-color: rgba(13, 110, 253, 0.1); color: #0d6efd; }
         .nav-link.active { background-color: #0d6efd !important; color: #fff !important; box-shadow: 0 4px 6px rgba(13, 110, 253, 0.3); }
@@ -116,7 +115,6 @@
         
         .form-control { background-color: var(--input-bg); border-color: var(--border-color); color: var(--text-main); }
         .form-control:focus { background-color: var(--input-bg); color: var(--text-main); border-color: #0d6efd; }
-        .form-label { color: var(--text-muted); font-size: 0.9em; margin-bottom: 0.3rem; }
         
         .log-box { 
             background: var(--log-bg); 
@@ -168,7 +166,6 @@
             <img src="/static/logo.png" alt="Logo" class="logo-img">
             <h3 class="fw-bold text-primary m-0" style="font-size: 1.5rem;">Mihomo</h3>
         </div>
-        
         <button class="btn btn-sm btn-outline-secondary border-0" onclick="toggleTheme()" title="切换深色模式">
             <i class="bi bi-moon-stars-fill" id="theme-icon-pc"></i>
         </button>
@@ -180,7 +177,7 @@
         <button class="nav-link" id="tab-notify-btn" data-bs-toggle="pill" data-bs-target="#tab-notify" onclick="loadSettings(); closeSidebar()"><i class="bi bi-bell"></i> 通知中心</button>
         <button class="nav-link" id="tab-logs-btn" data-bs-toggle="pill" data-bs-target="#tab-logs" onclick="closeSidebar()"><i class="bi bi-terminal"></i> 运行日志</button>
     </div>
-    <div class="mt-auto text-muted small ps-2 d-none d-md-block">v2.8 | <span id="ver-info">Live</span></div>
+    <div class="mt-auto text-muted small ps-2 d-none d-md-block">v3.0 | <span id="ver-info">Live</span></div>
 </div>
 
 <div class="content-area">
@@ -286,6 +283,31 @@
         </div>
 
         <div class="tab-pane fade" id="tab-notify">
+            <div class="card border-danger border-1 mb-4" style="border-left-width: 4px;">
+                <div class="card-header text-danger">
+                    <i class="bi bi-shield-lock"></i> 面板安全设置
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">管理账号</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-person"></i></span>
+                                <input type="text" class="form-control" id="web_user" placeholder="默认 admin">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">管理密码</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-key"></i></span>
+                                <input type="text" class="form-control" id="web_secret" placeholder="默认 admin">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-text text-muted mt-2"><i class="bi bi-info-circle"></i> 修改并保存后，页面会立刻弹出验证框，请使用新密码重新登录。</div>
+                </div>
+            </div>
+
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <span><i class="bi bi-megaphone"></i> 通知配置</span>
@@ -312,7 +334,7 @@
                             <input type="text" class="form-control" id="api_url" placeholder="http://...">
                         </div>
                     </div>
-                    <button class="btn btn-primary mt-3" onclick="saveSettings(false)">💾 保存配置</button>
+                    <button class="btn btn-primary mt-3" onclick="saveSettings(false)">💾 保存所有设置</button>
                 </div>
             </div>
         </div>
@@ -337,39 +359,29 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    // --- 新增：侧边栏交互逻辑 ---
     function toggleSidebar() {
         document.getElementById('sidebar').classList.toggle('show');
         document.getElementById('sidebar-overlay').classList.toggle('show');
     }
     
     function closeSidebar() {
-        // 仅在移动端（检测样式类）生效
         if(window.innerWidth <= 768) {
             document.getElementById('sidebar').classList.remove('show');
             document.getElementById('sidebar-overlay').classList.remove('show');
         }
     }
 
-    // --- 日志逻辑 ---
     let logInterval = null;
-
     function startLogPolling() {
         if(logInterval) clearInterval(logInterval);
         loadLogs(); 
         logInterval = setInterval(() => {
-            const isAuto = document.getElementById('auto-scroll-switch').checked;
-            if (isAuto) loadLogs();
+            if (document.getElementById('auto-scroll-switch').checked) loadLogs();
         }, 3000); 
     }
-
     function stopLogPolling() {
-        if(logInterval) {
-            clearInterval(logInterval);
-            logInterval = null;
-        }
+        if(logInterval) { clearInterval(logInterval); logInterval = null; }
     }
-
     document.getElementById('tab-logs-btn').addEventListener('shown.bs.tab', startLogPolling);
     document.getElementById('tab-logs-btn').addEventListener('hidden.bs.tab', stopLogPolling);
     
@@ -396,70 +408,53 @@
                     html += `<div class="log-entry"><span class="log-msg text-muted">${line}</span></div>`;
                 }
             });
-            
             if (logContainer.innerHTML !== html) {
                 logContainer.innerHTML = html;
-                if (isAtBottom) {
-                    logContainer.scrollTop = logContainer.scrollHeight;
-                }
+                if (isAtBottom) logContainer.scrollTop = logContainer.scrollHeight;
             }
         });
     }
 
-    // --- 主题逻辑 (需同时更新两个图标) ---
     function toggleTheme() {
         const body = document.body;
         const iconMobile = document.getElementById('theme-icon-mobile');
         const iconPC = document.getElementById('theme-icon-pc');
-        
-        const applyLight = () => {
+        const isDark = body.getAttribute('data-theme') === 'dark';
+        if (isDark) {
             body.removeAttribute('data-theme');
             if(iconMobile) iconMobile.classList.replace('bi-sun-fill', 'bi-moon-stars-fill');
             if(iconPC) iconPC.classList.replace('bi-sun-fill', 'bi-moon-stars-fill');
             localStorage.setItem('theme', 'light');
             document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff');
-        };
-        
-        const applyDark = () => {
+        } else {
             body.setAttribute('data-theme', 'dark');
             if(iconMobile) iconMobile.classList.replace('bi-moon-stars-fill', 'bi-sun-fill');
             if(iconPC) iconPC.classList.replace('bi-moon-stars-fill', 'bi-sun-fill');
             localStorage.setItem('theme', 'dark');
             document.querySelector('meta[name="theme-color"]').setAttribute('content', '#121212');
-        };
-
-        if (body.getAttribute('data-theme') === 'dark') {
-            applyLight();
-        } else {
-            applyDark();
         }
     }
-    // 初始化主题
     if (localStorage.getItem('theme') === 'dark') {
-        const body = document.body;
-        body.setAttribute('data-theme', 'dark');
-        // 初始化时还没生成DOM，等DOM好了再设图标? 不，脚本在body末尾，直接设置
-        const iconMobile = document.getElementById('theme-icon-mobile');
-        const iconPC = document.getElementById('theme-icon-pc');
-        if(iconMobile) iconMobile.classList.replace('bi-moon-stars-fill', 'bi-sun-fill');
-        if(iconPC) iconPC.classList.replace('bi-moon-stars-fill', 'bi-sun-fill');
+        document.body.setAttribute('data-theme', 'dark');
+        setTimeout(() => {
+           const iconMobile = document.getElementById('theme-icon-mobile');
+           const iconPC = document.getElementById('theme-icon-pc');
+           if(iconMobile) iconMobile.classList.replace('bi-moon-stars-fill', 'bi-sun-fill');
+           if(iconPC) iconPC.classList.replace('bi-moon-stars-fill', 'bi-sun-fill');
+        }, 100);
         document.querySelector('meta[name="theme-color"]').setAttribute('content', '#121212');
     }
 
-    // --- Tab记忆 ---
     const tabButtons = document.querySelectorAll('button[data-bs-toggle="pill"]');
     tabButtons.forEach(btn => {
-        btn.addEventListener('shown.bs.tab', event => {
-            localStorage.setItem('activeTab', event.target.id);
-        });
+        btn.addEventListener('shown.bs.tab', event => localStorage.setItem('activeTab', event.target.id));
     });
     
     const activeTabId = localStorage.getItem('activeTab');
     if (activeTabId) {
         const tabTrigger = document.getElementById(activeTabId);
         if(tabTrigger) {
-            const tabInstance = new bootstrap.Tab(tabTrigger);
-            tabInstance.show();
+            new bootstrap.Tab(tabTrigger).show();
             if(activeTabId === 'tab-tasks-btn') loadConfig();
             if(activeTabId === 'tab-notify-btn') loadSettings(); 
             if(activeTabId === 'tab-logs-btn') startLogPolling();
@@ -468,7 +463,9 @@
 
     async function api(path, data) {
         const opts = data ? { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) } : {};
-        return (await fetch('/api'+path, opts)).json();
+        const resp = await fetch('/api'+path, opts);
+        if (resp.status === 401) { location.reload(); return; }
+        return resp.json();
     }
 
     function control(act) {
@@ -480,9 +477,7 @@
     }
 
     function loadConfig() {
-        api('/config').then(res => {
-            document.getElementById('config-editor').value = res.content || '';
-        });
+        api('/config').then(res => document.getElementById('config-editor').value = res.content || '');
         loadSettings(); 
     }
 
@@ -521,11 +516,16 @@
             if(document.getElementById('cron_sub_sched')) document.getElementById('cron_sub_sched').value = res.cron_sub_sched;
             if(document.getElementById('cron_geo_enabled')) document.getElementById('cron_geo_enabled').checked = isTrue(res.cron_geo_enabled);
             if(document.getElementById('cron_geo_sched')) document.getElementById('cron_geo_sched').value = res.cron_geo_sched;
+            // 回显鉴权信息
+            document.getElementById('web_user').value = res.web_user || 'admin';
+            document.getElementById('web_secret').value = res.web_secret || 'admin';
         });
     }
 
     async function saveSettings(silent = false) {
         const res = await api('/settings', {
+            web_user: document.getElementById('web_user').value,
+            web_secret: document.getElementById('web_secret').value,
             notify_tg: String(document.getElementById('notify_tg').checked),
             tg_token: document.getElementById('tg_token').value,
             tg_id: document.getElementById('tg_id').value,
@@ -537,7 +537,10 @@
             cron_geo_enabled: document.getElementById('cron_geo_enabled') ? String(document.getElementById('cron_geo_enabled').checked) : 'false',
             cron_geo_sched: document.getElementById('cron_geo_sched') ? document.getElementById('cron_geo_sched').value : ''
         });
-        if(!silent) alert(res.message);
+        if(!silent) {
+            alert(res.message);
+            if(res.success) location.reload(); // 强制重载以触发新密码登录
+        }
         return res;
     }
 
