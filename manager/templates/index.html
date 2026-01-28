@@ -51,6 +51,8 @@
             top: 0; left: 0;
             z-index: 1040; 
             transition: transform 0.3s ease-in-out, background-color 0.3s; 
+            display: flex;
+            flex-direction: column;
         }
         
         .content-area { margin-left: 260px; padding: 30px; transition: margin-left 0.3s; }
@@ -68,6 +70,8 @@
                 box-shadow: 4px 0 12px rgba(0,0,0,0.1);
                 border-right: none !important;
                 z-index: 9999 !important;
+                /* 关键修复：允许侧边栏内容滚动，防止按钮被挤出屏幕 */
+                overflow-y: auto !important; 
             }
             .sidebar.show { transform: translateX(0); }
             
@@ -165,7 +169,7 @@
 
 <div class="overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
 
-<div class="sidebar d-flex flex-column" id="sidebar">
+<div class="sidebar" id="sidebar">
     <div class="sidebar-logo-area d-flex justify-content-between align-items-center mb-5 px-2">
         <div class="d-flex align-items-center">
             <img src="/static/logo.png" alt="Logo" class="logo-img">
@@ -181,11 +185,9 @@
         <button class="nav-link" id="tab-tasks-btn" data-bs-toggle="pill" data-bs-target="#tab-tasks" onclick="loadSettings(); closeSidebar()"><i class="bi bi-sliders"></i> 订阅与任务</button>
         <button class="nav-link" id="tab-notify-btn" data-bs-toggle="pill" data-bs-target="#tab-notify" onclick="loadSettings(); closeSidebar()"><i class="bi bi-bell"></i> 通知中心</button>
         <button class="nav-link" id="tab-logs-btn" data-bs-toggle="pill" data-bs-target="#tab-logs" onclick="closeSidebar()"><i class="bi bi-terminal"></i> 运行日志</button>
-    </div>
-
-    <div class="mt-auto ps-2 pb-3">
-        <a href="/logout" class="btn btn-sm btn-outline-danger w-100 border-0 text-start">
-            <i class="bi bi-box-arrow-left me-2"></i> 退出登录
+        
+        <a href="/logout" class="nav-link text-danger mt-3 border border-danger">
+            <i class="bi bi-box-arrow-left"></i> 退出登录
         </a>
     </div>
 </div>
@@ -449,13 +451,10 @@
     async function api(path, data) {
         const opts = data ? { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) } : {};
         const resp = await fetch('/api'+path, opts);
-        
-        // 遇到 401 (未登录)，跳到登录页
         if (resp.status === 401) {
             window.location.href = '/login';
             return;
         }
-        
         return resp.json();
     }
 
