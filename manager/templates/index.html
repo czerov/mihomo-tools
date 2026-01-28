@@ -38,14 +38,21 @@
             --log-bg: #000;
         }
         
-        /* 核心修复：深色模式下的静音文字颜色增强 */
+        /* === 核心修复：深色模式可见性优化 === */
+        
+        /* 1. 强制覆盖 form-control 的 placeholder 颜色 */
+        [data-theme="dark"] .form-control::placeholder {
+            color: #adb5bd !important; /* 浅灰色，确保可见 */
+            opacity: 1;
+        }
+        
+        /* 2. 强制覆盖所有 text-muted 类的颜色 */
         [data-theme="dark"] .text-muted {
             color: #adb5bd !important;
         }
 
         body { background-color: var(--bg-body); color: var(--text-main); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; transition: background-color 0.3s; }
         
-        /* --- PC端侧边栏 --- */
         .sidebar { 
             background: var(--bg-sidebar); 
             min-height: 100vh; 
@@ -64,7 +71,6 @@
         .mobile-header { display: none !important; }
         .overlay { display: none !important; }
 
-        /* --- 移动端适配 --- */
         @media (max-width: 768px) {
             .sidebar { 
                 position: fixed !important;
@@ -312,8 +318,14 @@
                             <label class="form-check-label fw-bold">Telegram Bot</label>
                         </div>
                         <div class="row g-3 ps-2">
-                            <div class="col-md-6"><input type="text" class="form-control" id="tg_token" placeholder="Bot Token"></div>
-                            <div class="col-md-6"><input type="text" class="form-control" id="tg_id" placeholder="Chat ID"></div>
+                            <div class="col-md-6">
+                                <label class="form-label">Bot Token</label>
+                                <input type="text" class="form-control" id="tg_token" placeholder="Bot Token">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Chat ID</label>
+                                <input type="text" class="form-control" id="tg_id" placeholder="Chat ID">
+                            </div>
                         </div>
                     </div>
                     <hr class="border-secondary">
@@ -456,10 +468,12 @@
     async function api(path, data) {
         const opts = data ? { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) } : {};
         const resp = await fetch('/api'+path, opts);
+        
         if (resp.status === 401) {
             window.location.href = '/login';
             return;
         }
+        
         return resp.json();
     }
 
