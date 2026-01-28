@@ -18,6 +18,7 @@
             --bg-body: #f4f6f9;
             --bg-sidebar: #fff;
             --bg-card: #fff;
+            --bg-header: #fff;
             --text-main: #212529;
             --text-muted: #6c757d;
             --border-color: #e1e4e8;
@@ -29,6 +30,7 @@
             --bg-body: #121212;
             --bg-sidebar: #1e1e1e;
             --bg-card: #252525;
+            --bg-header: #1e1e1e;
             --text-main: #e0e0e0;
             --text-muted: #a0a0a0;
             --border-color: #333;
@@ -37,17 +39,73 @@
         }
 
         body { background-color: var(--bg-body); color: var(--text-main); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; transition: background-color 0.3s; }
-        .sidebar { background: var(--bg-sidebar); min-height: 100vh; padding: 20px; border-right: 1px solid var(--border-color); width: 260px; position: fixed; z-index: 1000; transition: background-color 0.3s; }
-        .content-area { margin-left: 260px; padding: 30px; }
         
-        @media (max-width: 768px) {
-            .sidebar { width: 100%; height: auto; min-height: auto; position: relative; border-right: none; border-bottom: 1px solid var(--border-color); padding: 15px; }
-            .content-area { margin-left: 0; padding: 15px; }
-            .nav-pills { flex-direction: row; overflow-x: auto; flex-wrap: nowrap; margin-right: 0 !important; }
-            .nav-link { white-space: nowrap; margin-right: 5px; font-size: 0.9rem; padding: 8px 12px; }
-            .log-box { height: 400px; }
+        /* --- 侧边栏 (PC端) --- */
+        .sidebar { 
+            background: var(--bg-sidebar); 
+            min-height: 100vh; 
+            padding: 20px; 
+            border-right: 1px solid var(--border-color); 
+            width: 260px; 
+            position: fixed; 
+            z-index: 1040; 
+            transition: transform 0.3s ease-in-out, background-color 0.3s; 
         }
+        
+        .content-area { margin-left: 260px; padding: 30px; transition: margin-left 0.3s; }
 
+        /* --- 移动端适配 (核心改动) --- */
+        @media (max-width: 768px) {
+            /* 1. 侧边栏改为抽屉式 */
+            .sidebar { 
+                transform: translateX(-100%); /* 默认移出屏幕 */
+                width: 280px; 
+                height: 100vh;
+                top: 0; left: 0;
+                box-shadow: 4px 0 12px rgba(0,0,0,0.1);
+            }
+            .sidebar.show { transform: translateX(0); } /* 激活时滑入 */
+            
+            /* 2. 内容区域填满，不需要左边距 */
+            .content-area { margin-left: 0; padding: 20px; padding-top: 80px; /* 留出顶部栏高度 */ }
+            
+            /* 3. 移动端顶部栏 (仅手机可见) */
+            .mobile-header {
+                display: flex !important;
+                align-items: center;
+                justify-content: space-between;
+                height: 60px;
+                padding: 0 20px;
+                background: var(--bg-header);
+                border-bottom: 1px solid var(--border-color);
+                position: fixed;
+                top: 0; left: 0; right: 0;
+                z-index: 1030;
+            }
+            
+            /* 4. 遮罩层 */
+            .overlay {
+                position: fixed;
+                top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 1035;
+                opacity: 0;
+                visibility: hidden;
+                transition: opacity 0.3s;
+                backdrop-filter: blur(2px);
+            }
+            .overlay.show { opacity: 1; visibility: visible; }
+            
+            /* 隐藏侧边栏里的 Logo (因为移动端顶部有了) */
+            .sidebar-logo-area { display: none !important; }
+        }
+        
+        /* PC端隐藏移动头 */
+        .mobile-header { display: none; }
+        .overlay { display: none; } /* PC端不需要遮罩 */
+        @media (max-width: 768px) { .overlay { display: block; } }
+
+        /* 通用样式保持不变 */
         .nav-link { color: var(--text-muted); margin-bottom: 8px; border-radius: 8px; font-weight: 500; padding: 12px; transition: all 0.2s; cursor: pointer; }
         .nav-link:hover { background-color: rgba(13, 110, 253, 0.1); color: #0d6efd; }
         .nav-link.active { background-color: #0d6efd !important; color: #fff !important; box-shadow: 0 4px 6px rgba(13, 110, 253, 0.3); }
@@ -60,7 +118,6 @@
         .form-control:focus { background-color: var(--input-bg); color: var(--text-main); border-color: #0d6efd; }
         .form-label { color: var(--text-muted); font-size: 0.9em; margin-bottom: 0.3rem; }
         
-        /* 核心日志样式优化 */
         .log-box { 
             background: var(--log-bg); 
             font-family: 'JetBrains Mono', 'Consolas', monospace; 
@@ -71,7 +128,7 @@
             font-size: 12px; 
             line-height: 1.6; 
             border: 1px solid var(--border-color);
-            scroll-behavior: smooth; /* 平滑滚动 */
+            scroll-behavior: smooth;
         }
         .log-entry { margin-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 2px; display: flex; align-items: flex-start; }
         .log-time { color: #888; margin-right: 10px; min-width: 130px; }
@@ -88,24 +145,42 @@
 </head>
 <body>
 
-<div class="sidebar d-flex flex-column">
-    <div class="d-flex justify-content-between align-items-center mb-5 px-2">
+<div class="mobile-header">
+    <div class="d-flex align-items-center">
+        <button class="btn btn-link text-reset p-0 me-3" onclick="toggleSidebar()">
+            <i class="bi bi-list fs-1"></i>
+        </button>
+        <div class="d-flex align-items-center">
+            <img src="/static/logo.png" alt="Logo" class="logo-img" style="width: 28px; height: 28px;">
+            <h5 class="fw-bold m-0">Mihomo</h5>
+        </div>
+    </div>
+    <button class="btn btn-sm btn-outline-secondary border-0" onclick="toggleTheme()">
+        <i class="bi bi-moon-stars-fill" id="theme-icon-mobile"></i>
+    </button>
+</div>
+
+<div class="overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+<div class="sidebar d-flex flex-column" id="sidebar">
+    <div class="sidebar-logo-area d-flex justify-content-between align-items-center mb-5 px-2">
         <div class="d-flex align-items-center">
             <img src="/static/logo.png" alt="Logo" class="logo-img">
             <h3 class="fw-bold text-primary m-0" style="font-size: 1.5rem;">Mihomo</h3>
         </div>
+        
         <button class="btn btn-sm btn-outline-secondary border-0" onclick="toggleTheme()" title="切换深色模式">
-            <i class="bi bi-moon-stars-fill" id="theme-icon"></i>
+            <i class="bi bi-moon-stars-fill" id="theme-icon-pc"></i>
         </button>
     </div>
     
     <div class="nav flex-column nav-pills me-3" id="mainTab" role="tablist">
-        <button class="nav-link active" id="tab-dash-btn" data-bs-toggle="pill" data-bs-target="#tab-dash"><i class="bi bi-grid-1x2"></i> 概览与控制</button>
-        <button class="nav-link" id="tab-tasks-btn" data-bs-toggle="pill" data-bs-target="#tab-tasks" onclick="loadSettings()"><i class="bi bi-sliders"></i> 订阅与任务</button>
-        <button class="nav-link" id="tab-notify-btn" data-bs-toggle="pill" data-bs-target="#tab-notify" onclick="loadSettings()"><i class="bi bi-bell"></i> 通知中心</button>
-        <button class="nav-link" id="tab-logs-btn" data-bs-toggle="pill" data-bs-target="#tab-logs"><i class="bi bi-terminal"></i> 运行日志</button>
+        <button class="nav-link active" id="tab-dash-btn" data-bs-toggle="pill" data-bs-target="#tab-dash" onclick="closeSidebar()"><i class="bi bi-grid-1x2"></i> 概览与控制</button>
+        <button class="nav-link" id="tab-tasks-btn" data-bs-toggle="pill" data-bs-target="#tab-tasks" onclick="loadSettings(); closeSidebar()"><i class="bi bi-sliders"></i> 订阅与任务</button>
+        <button class="nav-link" id="tab-notify-btn" data-bs-toggle="pill" data-bs-target="#tab-notify" onclick="loadSettings(); closeSidebar()"><i class="bi bi-bell"></i> 通知中心</button>
+        <button class="nav-link" id="tab-logs-btn" data-bs-toggle="pill" data-bs-target="#tab-logs" onclick="closeSidebar()"><i class="bi bi-terminal"></i> 运行日志</button>
     </div>
-    <div class="mt-auto text-muted small ps-2 d-none d-md-block">v2.7 | <span id="ver-info">Live</span></div>
+    <div class="mt-auto text-muted small ps-2 d-none d-md-block">v2.8 | <span id="ver-info">Live</span></div>
 </div>
 
 <div class="content-area">
@@ -262,16 +337,30 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    // --- 核心改动：日志自动刷新逻辑 ---
+    // --- 新增：侧边栏交互逻辑 ---
+    function toggleSidebar() {
+        document.getElementById('sidebar').classList.toggle('show');
+        document.getElementById('sidebar-overlay').classList.toggle('show');
+    }
+    
+    function closeSidebar() {
+        // 仅在移动端（检测样式类）生效
+        if(window.innerWidth <= 768) {
+            document.getElementById('sidebar').classList.remove('show');
+            document.getElementById('sidebar-overlay').classList.remove('show');
+        }
+    }
+
+    // --- 日志逻辑 ---
     let logInterval = null;
 
     function startLogPolling() {
         if(logInterval) clearInterval(logInterval);
-        loadLogs(); // 立即执行一次
+        loadLogs(); 
         logInterval = setInterval(() => {
             const isAuto = document.getElementById('auto-scroll-switch').checked;
             if (isAuto) loadLogs();
-        }, 3000); // 每3秒刷新
+        }, 3000); 
     }
 
     function stopLogPolling() {
@@ -281,18 +370,13 @@
         }
     }
 
-    // 监听标签页切换
     document.getElementById('tab-logs-btn').addEventListener('shown.bs.tab', startLogPolling);
     document.getElementById('tab-logs-btn').addEventListener('hidden.bs.tab', stopLogPolling);
     
-    // --- 自动滚动逻辑 ---
     function loadLogs() {
         api('/logs').then(res => {
             const rawLogs = res.logs || "";
             const logContainer = document.getElementById('log-display');
-            
-            // 判断用户是否正在向上看历史日志 (如果没到底部，就不强制滚动)
-            // 阈值设为 50px，给一点容错
             const isAtBottom = (logContainer.scrollHeight - logContainer.scrollTop - logContainer.clientHeight) < 50;
 
             const lines = rawLogs.split('\n').filter(line => line.trim() !== '').reverse();
@@ -313,10 +397,8 @@
                 }
             });
             
-            // 只有内容变了才更新DOM，避免闪烁(虽然简单替换也可以)
             if (logContainer.innerHTML !== html) {
                 logContainer.innerHTML = html;
-                // 如果之前是在底部，更新后自动吸底
                 if (isAtBottom) {
                     logContainer.scrollTop = logContainer.scrollHeight;
                 }
@@ -324,25 +406,47 @@
         });
     }
 
-    // --- 其他原有逻辑 ---
-    
+    // --- 主题逻辑 (需同时更新两个图标) ---
     function toggleTheme() {
         const body = document.body;
-        const icon = document.getElementById('theme-icon');
-        if (body.getAttribute('data-theme') === 'dark') {
+        const iconMobile = document.getElementById('theme-icon-mobile');
+        const iconPC = document.getElementById('theme-icon-pc');
+        
+        const applyLight = () => {
             body.removeAttribute('data-theme');
-            icon.classList.replace('bi-sun-fill', 'bi-moon-stars-fill');
+            if(iconMobile) iconMobile.classList.replace('bi-sun-fill', 'bi-moon-stars-fill');
+            if(iconPC) iconPC.classList.replace('bi-sun-fill', 'bi-moon-stars-fill');
             localStorage.setItem('theme', 'light');
             document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff');
-        } else {
+        };
+        
+        const applyDark = () => {
             body.setAttribute('data-theme', 'dark');
-            icon.classList.replace('bi-moon-stars-fill', 'bi-sun-fill');
+            if(iconMobile) iconMobile.classList.replace('bi-moon-stars-fill', 'bi-sun-fill');
+            if(iconPC) iconPC.classList.replace('bi-moon-stars-fill', 'bi-sun-fill');
             localStorage.setItem('theme', 'dark');
             document.querySelector('meta[name="theme-color"]').setAttribute('content', '#121212');
+        };
+
+        if (body.getAttribute('data-theme') === 'dark') {
+            applyLight();
+        } else {
+            applyDark();
         }
     }
-    if (localStorage.getItem('theme') === 'dark') toggleTheme();
+    // 初始化主题
+    if (localStorage.getItem('theme') === 'dark') {
+        const body = document.body;
+        body.setAttribute('data-theme', 'dark');
+        // 初始化时还没生成DOM，等DOM好了再设图标? 不，脚本在body末尾，直接设置
+        const iconMobile = document.getElementById('theme-icon-mobile');
+        const iconPC = document.getElementById('theme-icon-pc');
+        if(iconMobile) iconMobile.classList.replace('bi-moon-stars-fill', 'bi-sun-fill');
+        if(iconPC) iconPC.classList.replace('bi-moon-stars-fill', 'bi-sun-fill');
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', '#121212');
+    }
 
+    // --- Tab记忆 ---
     const tabButtons = document.querySelectorAll('button[data-bs-toggle="pill"]');
     tabButtons.forEach(btn => {
         btn.addEventListener('shown.bs.tab', event => {
@@ -358,7 +462,6 @@
             tabInstance.show();
             if(activeTabId === 'tab-tasks-btn') loadConfig();
             if(activeTabId === 'tab-notify-btn') loadSettings(); 
-            // 修复：如果刷新页面时刚好停在日志页，也要启动轮询
             if(activeTabId === 'tab-logs-btn') startLogPolling();
         }
     }
