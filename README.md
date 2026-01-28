@@ -24,7 +24,7 @@
 
 ## 📋 环境要求 (必读)
 
-本项目推荐运行在 **Proxmox VE (PVE)** 的 **LXC 容器** 中（Debian 11/12 或 Ubuntu 22.04+）。
+本项目推荐运行在 **Proxmox VE (PVE)** 的 **LXC 容器** 中（Debian 12/13 或 Ubuntu 22.04+）。
 
 ### ⚠️ PVE 宿主机预设 (TUN 模式开启)
 
