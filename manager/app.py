@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, Response, redirect, session, render_template_string
+from flask import Flask, render_template, request, jsonify, Response, redirect, session
 from functools import wraps
 from datetime import timedelta
 import subprocess
@@ -14,60 +14,6 @@ MIHOMO_DIR = "/etc/mihomo"
 SCRIPT_DIR = "/etc/mihomo/scripts"
 ENV_FILE = f"{MIHOMO_DIR}/.env"
 CONFIG_FILE = f"{MIHOMO_DIR}/config.yaml"
-
-# === 嵌入式登录页面 HTML (PWA 修复版) ===
-LOGIN_PAGE_HTML = """
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mihomo 登录</title>
-    
-    <link rel="manifest" href="/static/manifest.json">
-    <link rel="icon" type="image/png" href="/static/logo.png">
-    <link rel="apple-touch-icon" href="/static/logo.png">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#ffffff">
-    
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body { background: #f4f6f9; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .login-card { width: 100%; max-width: 400px; padding: 2rem; background: #fff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
-        .btn-primary { width: 100%; padding: 10px; font-weight: bold; }
-        .logo { width: 60px; height: 60px; margin-bottom: 1rem; border-radius: 12px; }
-        
-        /* 深色模式适配 */
-        @media (prefers-color-scheme: dark) {
-            body { background: #121212; color: #eee; }
-            .login-card { background: #1e1e1e; box-shadow: none; border: 1px solid #333; }
-            .form-control { background: #2b2b2b; border-color: #333; color: #eee; }
-            .text-muted { color: #adb5bd !important; } /* 修复深色模式文字 */
-        }
-    </style>
-</head>
-<body>
-    <div class="login-card text-center">
-        <img src="/static/logo.png" alt="Logo" class="logo">
-        <h4 class="mb-4 fw-bold">Mihomo Manager</h4>
-        <form action="/login" method="POST">
-            <div class="mb-3 text-start">
-                <label class="form-label text-muted small">用户名</label>
-                <input type="text" name="username" class="form-control" placeholder="默认 admin" required>
-            </div>
-            <div class="mb-4 text-start">
-                <label class="form-label text-muted small">密码</label>
-                <input type="password" name="password" class="form-control" placeholder="默认 admin" required>
-            </div>
-            <button type="submit" class="btn btn-primary">登 录</button>
-            {% if error %}
-            <div class="mt-3 text-danger small">{{ error }}</div>
-            {% endif %}
-        </form>
-    </div>
-</body>
-</html>
-"""
 
 def run_cmd(cmd):
     try:
@@ -115,6 +61,7 @@ def check_creds(username, password):
     valid_pass = env.get('WEB_SECRET', 'admin')
     return username == valid_user and password == valid_pass
 
+# 鉴权装饰器
 def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -124,6 +71,8 @@ def login_required(f):
             return redirect('/login')
         return f(*args, **kwargs)
     return decorated
+
+# --- 路由 ---
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -135,10 +84,11 @@ def login():
             session['logged_in'] = True
             return redirect('/')
         else:
-            return render_template_string(LOGIN_PAGE_HTML, error="用户名或密码错误")
+            return render_template('login.html', error="用户名或密码错误")
     if session.get('logged_in'):
         return redirect('/')
-    return render_template_string(LOGIN_PAGE_HTML)
+    # 渲染独立的 login.html 模板
+    return render_template('login.html')
 
 @app.route('/logout')
 def logout():
@@ -148,7 +98,8 @@ def logout():
 @app.route('/')
 def index():
     if not session.get('logged_in'):
-        return render_template_string(LOGIN_PAGE_HTML)
+        # 渲染 login.html (状态码200，骗过 iOS PWA)
+        return render_template('login.html')
     return render_template('index.html')
 
 @app.route('/api/status')
