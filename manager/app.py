@@ -7,10 +7,7 @@ import os
 app = Flask(__name__)
 
 # === 配置 Session ===
-# 设置密钥 (用于签名 Cookie)，这里简单使用固定字符串，保证重启服务后登录不失效
-# 你也可以在 .env 里配置 SECRET_KEY="xxx"
 app.secret_key = "mihomo-manager-secret-key-permanent"
-# 设置 Session 有效期为 1 年
 app.permanent_session_lifetime = timedelta(days=365)
 
 MIHOMO_DIR = "/etc/mihomo"
@@ -18,7 +15,8 @@ SCRIPT_DIR = "/etc/mihomo/scripts"
 ENV_FILE = f"{MIHOMO_DIR}/.env"
 CONFIG_FILE = f"{MIHOMO_DIR}/config.yaml"
 
-# === 嵌入式登录页面 HTML (免去上传新文件的麻烦) ===
+# === 嵌入式登录页面 HTML ===
+# 核心修改：form action 显式指向 /login，因为现在首页直接渲染这个HTML，不指定 action 会 post 给自己
 LOGIN_PAGE_HTML = """
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -43,7 +41,7 @@ LOGIN_PAGE_HTML = """
     <div class="login-card text-center">
         <img src="/static/logo.png" alt="Logo" class="logo">
         <h4 class="mb-4 fw-bold">Mihomo Manager</h4>
-        <form method="POST">
+        <form action="/login" method="POST">
             <div class="mb-3 text-start">
                 <label class="form-label text-muted small">用户名</label>
                 <input type="text" name="username" class="form-control" placeholder="默认 admin" required>
@@ -102,23 +100,19 @@ def update_cron(job_id, schedule, command, enabled):
 def is_true(val):
     return str(val).lower() == 'true'
 
-# --- 鉴权逻辑 (Cookie Session 版) ---
-
 def check_creds(username, password):
     env = read_env()
     valid_user = env.get('WEB_USER', 'admin')
     valid_pass = env.get('WEB_SECRET', 'admin')
     return username == valid_user and password == valid_pass
 
+# 鉴权装饰器：只用于 API 和非首页路由
 def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        # 检查 Session 是否存在
         if not session.get('logged_in'):
-            # 如果是 API 请求，返回 401
             if request.path.startswith('/api'):
                 return jsonify({"error": "Unauthorized"}), 401
-            # 如果是页面请求，跳转登录页
             return redirect('/login')
         return f(*args, **kwargs)
     return decorated
@@ -131,16 +125,13 @@ def login():
         user = request.form.get('username')
         pwd = request.form.get('password')
         if check_creds(user, pwd):
-            session.permanent = True  # 开启永久会话 (365天)
+            session.permanent = True
             session['logged_in'] = True
             return redirect('/')
         else:
             return render_template_string(LOGIN_PAGE_HTML, error="用户名或密码错误")
-    
-    # 如果已经登录，直接跳首页
     if session.get('logged_in'):
         return redirect('/')
-        
     return render_template_string(LOGIN_PAGE_HTML)
 
 @app.route('/logout')
@@ -148,9 +139,16 @@ def logout():
     session.pop('logged_in', None)
     return redirect('/login')
 
+# === 核心修复点：首页路由 ===
+# 移除了 @login_required，改为内部判断
 @app.route('/')
-@login_required
 def index():
+    if not session.get('logged_in'):
+        # 重点：如果未登录，直接返回登录页 HTML (状态码 200)，而不是 Redirect (状态码 302)
+        # 这能骗过 iOS PWA，让它以为页面加载成功了，从而显示登录框
+        return render_template_string(LOGIN_PAGE_HTML)
+    
+    # 已登录，正常显示面板
     return render_template('index.html')
 
 @app.route('/api/status')
