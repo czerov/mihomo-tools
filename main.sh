@@ -28,7 +28,7 @@ check_status() {
 
 get_version() {
     if [ -f "$MIHOMO_PATH/mihomo" ]; then
-        # 加上 head -n 1 确保只取第一行
+        # 修复：只取第一行，防止出现 with_gvisor 等杂乱输出
         $MIHOMO_PATH/mihomo -v | head -n 1 | awk '{print $3}'
     else
         echo "未安装"
