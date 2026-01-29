@@ -166,6 +166,10 @@ def handle_settings():
             "notify_api": env.get('NOTIFY_API') == 'true',
             "api_url": env.get('NOTIFY_API_URL', ''),
             "sub_url": env.get('SUB_URL', ''),
+            
+            # 【修改点】新增读取本地网段配置
+            "local_cidr": env.get('LOCAL_CIDR', ''),
+
             "cron_sub_enabled": env.get('CRON_SUB_ENABLED') == 'true',
             "cron_sub_sched": env.get('CRON_SUB_SCHED', '0 5 * * *'), 
             "cron_geo_enabled": env.get('CRON_GEO_ENABLED') == 'true',
@@ -181,6 +185,10 @@ def handle_settings():
             "NOTIFY_API": str(is_true(d.get('notify_api'))).lower(),
             "NOTIFY_API_URL": d.get('api_url', ''),
             "SUB_URL": d.get('sub_url', ''),
+            
+            # 【修改点】新增保存本地网段配置
+            "LOCAL_CIDR": d.get('local_cidr', ''),
+
             "CRON_SUB_ENABLED": str(is_true(d.get('cron_sub_enabled'))).lower(),
             "CRON_SUB_SCHED": d.get('cron_sub_sched', '0 5 * * *'),
             "CRON_GEO_ENABLED": str(is_true(d.get('cron_geo_enabled'))).lower(),
