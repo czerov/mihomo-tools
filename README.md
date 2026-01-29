@@ -16,7 +16,7 @@
 * **🛠️ 模块化设计**：功能分离，易于维护和扩展。
 * **🌐 网关一键初始化**：自动开启 IP 转发、设置 NAT (Masquerade)、**暴力修复 Docker 导致的断网问题**。
 * **🔄 自动更新**：支持一键更新 GeoIP/GeoSite 数据库和 Mihomo 内核（自动抓取 GitHub Latest）。
-* **⚙️ 配置管理**：支持订阅链接下载、校验、备份及自动重载。
+* **⚙️ 配置管理**：支持订阅链接下载、校验及自动重载。
 * **🐕 看门狗 (Watchdog)**：自动监测进程和网络状态，崩溃/断网时自动重启并发送通知。
 * **🗑️ 纯净卸载**：支持一键完全卸载脚本及残留数据。
 
@@ -52,3 +52,9 @@
 git clone https://github.com/KyleYu2024/mihomo-tools.git /etc/mihomo-tools && bash /etc/mihomo-tools/install.sh
 
 ```
+##  WEB UI配置  ##
+💻http://ip:7838进入web ui
+可配置修改config.yaml
+配置webhook通知
+启动/停止/重启 mihomo
+快速跳转到ui面板
