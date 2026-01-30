@@ -1,6 +1,5 @@
 #!/bin/bash
 # install.sh - Mihomo Tools 一键安装脚本
-# 特性：自动获取最新内核 + 双服务架构 + 友好交互提示
 
 MIHOMO_DIR="/etc/mihomo"
 SCRIPT_DIR="${MIHOMO_DIR}/scripts"
@@ -39,7 +38,7 @@ fi
 echo "正在检查最新版本..."
 LATEST_VER=$(curl -s https://api.github.com/repos/MetaCubeX/mihomo/releases/latest | grep "tag_name" | cut -d '"' -f 4)
 if [ -z "$LATEST_VER" ]; then
-    LATEST_VER="v1.18.1" # 获取失败时的保底版本
+    LATEST_VER="v1.18.1"
     echo "⚠️ 获取最新版本失败，将使用稳定版: $LATEST_VER"
 else
     echo "✅ 发现最新版本: $LATEST_VER"
@@ -66,37 +65,31 @@ fi
 rm -rf "${UI_DIR}/*"
 wget -O /tmp/ui.zip "https://github.com/Zephyruso/zashboard/archive/refs/heads/gh-pages.zip" >/dev/null 2>&1 && unzip -q -o /tmp/ui.zip -d /tmp/ && cp -r /tmp/zashboard-gh-pages/* "${UI_DIR}/" && rm -rf /tmp/ui*
 
-# === 配置向导 (优化交互提示) ===
+# === 配置向导 ===
 echo "🔑 4. 配置账户..."
 DEFAULT_USER="admin"; DEFAULT_PASS="admin"; DEFAULT_PORT="7838"
 
 if [ -f "${ENV_FILE}" ]; then
-    # 如果已有配置文件，尝试保留
     source "${ENV_FILE}"
     CUR_USER=${WEB_USER:-admin}
     CUR_PASS=${WEB_SECRET:-admin}
     CUR_PORT=${WEB_PORT:-7838}
     
     echo "检测到现有配置: 用户=$CUR_USER, 端口=$CUR_PORT"
-    read -p "是否保留现有配置？(y/n) [默认: y]: " KEEP
+    read -p "是否保留现有配置？(Y/n) [默认: Y]: " KEEP
     KEEP=${KEEP:-Y}
 else
     KEEP="n"
 fi
 
 if [[ "$KEEP" =~ ^[Nn]$ ]]; then
-    # === 重新输入配置 ===
     read -p "请输入面板用户名 [默认: admin]: " IN_USER
     WEB_USER=${IN_USER:-admin}
-    
     read -p "请输入面板密码 [默认: admin]: " IN_PASS
     WEB_SECRET=${IN_PASS:-admin}
-    
-    # 【这里增加了明确的提示】
     read -p "请输入面板端口 [默认: 7838]: " IN_PORT
     WEB_PORT=${IN_PORT:-7838}
 else
-    # === 使用旧配置 ===
     WEB_USER=${WEB_USER:-$DEFAULT_USER}
     WEB_SECRET=${WEB_SECRET:-$DEFAULT_PASS}
     WEB_PORT=${WEB_PORT:-$DEFAULT_PORT}
@@ -111,6 +104,7 @@ SUB_URL=${SUB_URL:-}
 SUB_URL_RAW=${SUB_URL_RAW:-}
 SUB_URL_AIRPORT=${SUB_URL_AIRPORT:-}
 CONFIG_MODE=${CONFIG_MODE:-airport}
+LOCAL_CIDR=${LOCAL_CIDR:-}
 EOF
 
 # === 注册服务 ===
@@ -141,9 +135,36 @@ Restart=always
 WantedBy=multi-user.target
 EOF
 
+# === 系统参数调优 (双重保险) ===
+echo "🔧 6. 系统网络优化..."
+
+# 6.1 部署强制 IP 转发服务 (解决 LXC/Docker 权限问题)
+cat > /etc/systemd/system/force-ip-forward.service <<EOF
+[Unit]
+Description=Force Enable IPv4 Forwarding for Mihomo
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/sbin/sysctl -w net.ipv4.ip_forward=1
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# 6.2 运行常规网关初始化 (设置目录权限/Tun环境)
+if [ -f "${SCRIPT_DIR}/gateway_init.sh" ]; then
+    echo "正在执行网络环境初始化..."
+    bash "${SCRIPT_DIR}/gateway_init.sh"
+else
+    echo "⚠️ 未找到初始化脚本，跳过常规网络配置。"
+fi
+
+# 启动所有服务
 systemctl daemon-reload
-systemctl enable mihomo-manager mihomo
-systemctl restart mihomo-manager mihomo
+systemctl enable mihomo-manager mihomo force-ip-forward
+systemctl restart mihomo-manager mihomo force-ip-forward
 
 # 获取本机 IP 用于提示
 IP=$(hostname -I | awk '{print $1}')
@@ -153,5 +174,6 @@ echo "Web 面板地址: http://${IP}:${WEB_PORT}"
 echo "用户名: ${WEB_USER}"
 echo "密  码: ${WEB_SECRET}"
 echo "----------------------------------------"
+echo "✅ IP 转发已强制开启 (force-ip-forward)"
 echo "命令行菜单: 输入 'mihomo' 即可使用"
 echo "========================================"
