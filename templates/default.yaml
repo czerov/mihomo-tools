@@ -1,4 +1,4 @@
-# 机场订阅
+# 机场订阅      感谢七尺宇大佬的配置文件！
 proxy-providers:
   Airport1:
     url: "TEMPLATE_AIRPORT_URL"  # <--- 脚本会自动替换这个字符串
