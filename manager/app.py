@@ -56,14 +56,9 @@ def is_true(val):
     return str(val).lower() == 'true'
 
 def check_creds(username, password):
-    # 1. 读取文件配置
     file_env = read_env()
-    
-    # 2. 优先使用系统环境变量 (Docker传入)，其次用文件配置，最后用默认值
-    # os.environ.get 会读取 docker-compose environment 里的值
     valid_user = os.environ.get('WEB_USER') or file_env.get('WEB_USER', 'admin')
     valid_pass = os.environ.get('WEB_SECRET') or file_env.get('WEB_SECRET', 'admin')
-    
     return username == valid_user and password == valid_pass
 
 # 鉴权装饰器
@@ -92,7 +87,6 @@ def login():
             return render_template('login.html', error="用户名或密码错误")
     if session.get('logged_in'):
         return redirect('/')
-    # 渲染独立的 login.html 模板
     return render_template('login.html')
 
 @app.route('/logout')
@@ -103,7 +97,6 @@ def logout():
 @app.route('/')
 def index():
     if not session.get('logged_in'):
-        # 渲染 login.html (状态码200，骗过 iOS PWA)
         return render_template('login.html')
     return render_template('index.html')
 
@@ -167,7 +160,9 @@ def handle_settings():
             "api_url": env.get('NOTIFY_API_URL', ''),
             "sub_url": env.get('SUB_URL', ''),
             
-            # 【修改点】新增读取本地网段配置
+            # 【新增】读取配置模式
+            "config_mode": env.get('CONFIG_MODE', 'expert'),
+            
             "local_cidr": env.get('LOCAL_CIDR', ''),
 
             "cron_sub_enabled": env.get('CRON_SUB_ENABLED') == 'true',
@@ -186,7 +181,9 @@ def handle_settings():
             "NOTIFY_API_URL": d.get('api_url', ''),
             "SUB_URL": d.get('sub_url', ''),
             
-            # 【修改点】新增保存本地网段配置
+            # 【新增】保存配置模式
+            "CONFIG_MODE": d.get('config_mode', 'expert'),
+            
             "LOCAL_CIDR": d.get('local_cidr', ''),
 
             "CRON_SUB_ENABLED": str(is_true(d.get('cron_sub_enabled'))).lower(),
