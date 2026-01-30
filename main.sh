@@ -88,7 +88,7 @@ show_info() {
 show_menu() {
     clear
     echo -e "${BLUE}===========================================${NC}"
-    echo -e "${BLUE}       Mihomo 管理工具 (v2.2 Pro)          ${NC}"
+    echo -e "${BLUE}       Mihomo 管理工具         ${NC}"
     echo -e "${BLUE}===========================================${NC}"
     echo -e " 运行状态: $(check_status)"
     echo -e " 内核版本: $(get_version)"
