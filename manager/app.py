@@ -54,7 +54,8 @@ def update_cron(job_id, schedule, command, enabled):
         subprocess.run(f"echo '{cron_str}' | crontab -", shell=True)
     except: pass
 
-def is_true(val): return str(val).lower() == 'true'
+def is_true(val):
+    return str(val).lower() == 'true'
 
 def login_required(f):
     @wraps(f)
@@ -69,16 +70,25 @@ def login_required(f):
 def login():
     if request.method == 'POST':
         if check_creds(request.form.get('username'), request.form.get('password')):
-            session['logged_in'] = True; session.permanent = True
+            session['logged_in'] = True
+            session.permanent = True
             return redirect('/')
         return render_template('login.html', error="用户名或密码错误")
-    return redirect('/') if session.get('logged_in') else render_template('login.html')
+    
+    if session.get('logged_in'):
+        return redirect('/')
+    return render_template('login.html')
 
 @app.route('/logout')
-def logout(): session.pop('logged_in', None); return redirect('/login')
+def logout():
+    session.pop('logged_in', None)
+    return redirect('/login')
 
 @app.route('/')
-def index(): return render_template('index.html') if session.get('logged_in') else redirect('/login')
+def index():
+    if session.get('logged_in'):
+        return render_template('index.html')
+    return redirect('/login')
 
 @app.route('/api/status')
 @login_required
@@ -110,12 +120,17 @@ def handle_config():
     if request.method == 'GET':
         c = ""
         if os.path.exists(CONFIG_FILE):
-            try: with open(CONFIG_FILE,'r', encoding='utf-8') as f: c = f.read()
-            except: pass
+            # 【修复】拆分为标准多行结构
+            try:
+                with open(CONFIG_FILE,'r', encoding='utf-8') as f:
+                    c = f.read()
+            except:
+                pass
         return jsonify({"content": c})
     if request.method == 'POST':
         try:
-            with open(CONFIG_FILE,'w', encoding='utf-8') as f: f.write(request.json.get('content'))
+            with open(CONFIG_FILE,'w', encoding='utf-8') as f:
+                f.write(request.json.get('content'))
             return jsonify({"success": True, "message": "配置已保存"})
         except Exception as e:
             return jsonify({"success": False, "message": str(e)})
@@ -132,7 +147,7 @@ def get_logs():
 def handle_settings():
     if request.method == 'GET':
         e = read_env()
-        # 将换行符还原，供前端 Textarea 显示
+        # 处理多行 URL 里面的换行符
         sub_url_airport = e.get('SUB_URL_AIRPORT', '').replace('\\n', '\n')
         
         return jsonify({
@@ -141,11 +156,11 @@ def handle_settings():
             # 模式: 'raw' 或 'airport'
             "config_mode": e.get('CONFIG_MODE', 'airport'),
             
-            # 链接
+            # 两种 URL
             "sub_url_raw": e.get('SUB_URL_RAW', ''),
             "sub_url_airport": sub_url_airport,
             
-            # 通知 (全字段返回防 undefined)
+            # 通知
             "notify_tg": e.get('NOTIFY_TG') == 'true',
             "tg_token": e.get('TG_BOT_TOKEN', ''),
             "tg_bot_token": e.get('TG_BOT_TOKEN', ''),
@@ -155,7 +170,7 @@ def handle_settings():
             "api_url": e.get('NOTIFY_API_URL', ''),
             "notify_api_url": e.get('NOTIFY_API_URL', ''),
             
-            # 其他
+            # 其他配置
             "local_cidr": e.get('LOCAL_CIDR', ''),
             "cron_sub_enabled": e.get('CRON_SUB_ENABLED') == 'true',
             "cron_sub_sched": e.get('CRON_SUB_SCHED', '0 5 * * *'), 
@@ -169,9 +184,10 @@ def handle_settings():
         d = request.json
         mode = d.get('config_mode', 'airport')
         
-        # 处理多行 URL，转义换行符
+        # 获取多行 URL 并转义
         raw_airport = d.get('sub_url_airport', '')
-        if isinstance(raw_airport, list): raw_airport = "\n".join(raw_airport)
+        if isinstance(raw_airport, list):
+            raw_airport = "\n".join(raw_airport)
         escaped_airport = raw_airport.replace('\n', '\\n')
 
         # 兼容 key
@@ -226,6 +242,9 @@ def handle_settings():
 
 if __name__ == '__main__':
     env = read_env()
-    try: port = int(env.get('WEB_PORT', 7838))
-    except: port = 7838
+    # 【修复】标准写法
+    try:
+        port = int(env.get('WEB_PORT', 7838))
+    except:
+        port = 7838
     app.run(host='0.0.0.0', port=port)
