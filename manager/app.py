@@ -136,6 +136,7 @@ def handle_config():
                     content = f.read()
             except: pass
         env = read_env()
+        # 返回当前生效的 SUB_URL 给前端做参考（实际编辑以 settings 为准）
         return jsonify({"content": content, "sub_url": env.get('SUB_URL', '')})
     if request.method == 'POST':
         content = request.json.get('content')
@@ -158,13 +159,13 @@ def handle_settings():
             "tg_id": env.get('TG_CHAT_ID', ''),
             "notify_api": env.get('NOTIFY_API') == 'true',
             "api_url": env.get('NOTIFY_API_URL', ''),
-            "sub_url": env.get('SUB_URL', ''),
             
-            # 【新增】读取配置模式
+            # 【双模式独立存储】
             "config_mode": env.get('CONFIG_MODE', 'expert'),
+            "sub_url_expert": env.get('SUB_URL_EXPERT', ''),
+            "sub_url_template": env.get('SUB_URL_TEMPLATE', ''),
             
             "local_cidr": env.get('LOCAL_CIDR', ''),
-
             "cron_sub_enabled": env.get('CRON_SUB_ENABLED') == 'true',
             "cron_sub_sched": env.get('CRON_SUB_SCHED', '0 5 * * *'), 
             "cron_geo_enabled": env.get('CRON_GEO_ENABLED') == 'true',
@@ -173,25 +174,37 @@ def handle_settings():
 
     if request.method == 'POST':
         d = request.json
+        
+        # 获取前端传来的分别存储的 URL 和模式
+        mode = d.get('config_mode', 'expert')
+        url_expert = d.get('sub_url_expert', '')
+        url_template = d.get('sub_url_template', '')
+        
+        # 【核心逻辑】根据模式，计算出当前生效的 SUB_URL
+        # 脚本 update_subscription.sh 只认 SUB_URL
+        active_url = url_expert if mode == 'expert' else url_template
+
         updates = {
             "NOTIFY_TG": str(is_true(d.get('notify_tg'))).lower(),
             "TG_BOT_TOKEN": d.get('tg_token', ''),
             "TG_CHAT_ID": d.get('tg_id', ''),
             "NOTIFY_API": str(is_true(d.get('notify_api'))).lower(),
             "NOTIFY_API_URL": d.get('api_url', ''),
-            "SUB_URL": d.get('sub_url', ''),
             
-            # 【新增】保存配置模式
-            "CONFIG_MODE": d.get('config_mode', 'expert'),
+            # 【保存独立变量】
+            "CONFIG_MODE": mode,
+            "SUB_URL_EXPERT": url_expert,
+            "SUB_URL_TEMPLATE": url_template,
+            "SUB_URL": active_url,  # <--- 自动更新这个变量，给 Shell 脚本用
             
             "LOCAL_CIDR": d.get('local_cidr', ''),
-
             "CRON_SUB_ENABLED": str(is_true(d.get('cron_sub_enabled'))).lower(),
             "CRON_SUB_SCHED": d.get('cron_sub_sched', '0 5 * * *'),
             "CRON_GEO_ENABLED": str(is_true(d.get('cron_geo_enabled'))).lower(),
             "CRON_GEO_SCHED": d.get('cron_geo_sched', '0 4 * * *')
         }
         
+        # 更新 .env 文件
         lines = []
         if os.path.exists(ENV_FILE):
             with open(ENV_FILE, 'r', encoding='utf-8') as f:
