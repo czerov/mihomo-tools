@@ -120,7 +120,6 @@ def handle_config():
     if request.method == 'GET':
         c = ""
         if os.path.exists(CONFIG_FILE):
-            # 【修复】拆分为标准多行结构
             try:
                 with open(CONFIG_FILE,'r', encoding='utf-8') as f:
                     c = f.read()
@@ -152,6 +151,7 @@ def handle_settings():
         
         return jsonify({
             "web_user": e.get('WEB_USER'),
+            "web_port": e.get('WEB_PORT', '7838'), # 返回端口号给前端显示
             
             # 模式: 'raw' 或 'airport'
             "config_mode": e.get('CONFIG_MODE', 'airport'),
@@ -242,7 +242,6 @@ def handle_settings():
 
 if __name__ == '__main__':
     env = read_env()
-    # 【修复】标准写法
     try:
         port = int(env.get('WEB_PORT', 7838))
     except:
