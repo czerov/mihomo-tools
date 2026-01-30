@@ -60,4 +60,4 @@ git clone https://github.com/KyleYu2024/mihomo-tools.git /etc/mihomo-tools && ba
 5.  快速跳转到ui面板
 
 ##  ⚙️ 高级设置  ##
-在终端用mihomo-cli命令管理页面，可进行内核更新，程序卸载等高级操作
+在终端用mihomo命令管理页面，可进行内核更新，程序卸载等高级操作
