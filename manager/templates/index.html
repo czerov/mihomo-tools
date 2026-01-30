@@ -250,13 +250,13 @@
                         <div class="form-check">
                             <input class="form-check-input" type="radio" name="configMode" id="mode_raw" value="raw" onchange="toggleModeDesc()">
                             <label class="form-check-label" for="mode_raw">
-                                🔌 完整配置托管 (sub store)
+                                🔌 配置托管 (Config Hosted)
                             </label>
                         </div>
                         <div class="form-check">
                             <input class="form-check-input" type="radio" name="configMode" id="mode_airport" value="airport" onchange="toggleModeDesc()">
                             <label class="form-check-label" for="mode_airport">
-                                🏗️ 基础模板生成 (仅需机场订阅)
+                                🏗️ 节点订阅 (Subscription)
                             </label>
                         </div>
                     </div>
@@ -337,23 +337,6 @@
                     </button>
                 </div>
                 <div class="card-body">
-                    <div class="mb-4">
-                        <div class="form-check form-switch mb-2">
-                            <input class="form-check-input" type="checkbox" id="notify_tg">
-                            <label class="form-check-label fw-bold">Telegram Bot</label>
-                        </div>
-                        <div class="row g-3 ps-2">
-                            <div class="col-md-6">
-                                <label class="form-label">Bot Token</label>
-                                <input type="text" class="form-control" id="tg_token" placeholder="Bot Token">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Chat ID</label>
-                                <input type="text" class="form-control" id="tg_id" placeholder="Chat ID">
-                            </div>
-                        </div>
-                    </div>
-                    <hr class="border-secondary">
                     <div class="mb-3">
                         <div class="form-check form-switch mb-2">
                             <input class="form-check-input" type="checkbox" id="notify_api">
@@ -361,6 +344,7 @@
                         </div>
                         <div class="ps-2">
                             <input type="text" class="form-control" id="api_url" placeholder="http://...">
+                            <div class="form-text">支持发送 JSON 通知的 Webhook 地址</div>
                         </div>
                     </div>
                     <button class="btn btn-primary mt-3" onclick="saveSettings(false)">💾 保存所有设置</button>
@@ -491,25 +475,21 @@
     }
 
     // === 双变量独立存储逻辑 ===
-    // 【修复】统一变量名为 Raw 和 Airport
     let cachedUrlRaw = "";
     let cachedUrlAirport = "";
 
     function toggleModeDesc() {
-        // 【修复】ID 已改为 mode_airport
         const isAirport = document.getElementById('mode_airport').checked;
         const label = document.getElementById('sub_url_label');
         const hint = document.getElementById('sub_url_hint');
         const input = document.getElementById('sub_url');
         
         if (isAirport) {
-            // 切换到机场模式
             label.innerHTML = "机场订阅链接 (每行一个)";
             input.placeholder = "https://airport1.com/...\nhttps://airport2.com/...";
             hint.innerHTML = "支持多个机场，请每行填一个链接。系统将自动合并节点。";
             input.value = cachedUrlAirport; 
         } else {
-            // 切换到直连模式
             label.innerHTML = "完整配置文件 URL";
             input.placeholder = "http://... (Sub-Store/Gist)";
             hint.innerHTML = "系统将完整下载并应用该配置文件 (仅注入防回环规则)。";
@@ -517,7 +497,6 @@
         }
     }
     
-    // 监听输入框变化，实时更新缓存
     document.getElementById('sub_url').addEventListener('input', function(e) {
         if (document.getElementById('mode_airport').checked) {
             cachedUrlAirport = e.target.value;
@@ -575,9 +554,8 @@
     function loadSettings() {
         api('/settings').then(res => {
             const isTrue = (val) => val === true || val === 'true';
-            document.getElementById('notify_tg').checked = isTrue(res.notify_tg);
-            document.getElementById('tg_token').value = res.tg_token;
-            document.getElementById('tg_id').value = res.tg_id;
+            
+            // 仅加载 API 配置
             document.getElementById('notify_api').checked = isTrue(res.notify_api);
             document.getElementById('api_url').value = res.api_url;
             
@@ -607,7 +585,6 @@
         let currentMode = 'raw';
         if (document.getElementById('mode_airport').checked) currentMode = 'airport';
         
-        // 确保当前值已保存到缓存
         if (currentMode === 'airport') {
             cachedUrlAirport = document.getElementById('sub_url').value;
         } else {
@@ -615,9 +592,7 @@
         }
 
         const res = await api('/settings', {
-            notify_tg: String(document.getElementById('notify_tg').checked),
-            tg_token: document.getElementById('tg_token').value,
-            tg_id: document.getElementById('tg_id').value,
+            // 仅发送 API 配置
             notify_api: String(document.getElementById('notify_api').checked),
             api_url: document.getElementById('api_url').value,
             
