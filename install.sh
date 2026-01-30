@@ -1,5 +1,5 @@
 #!/bin/bash
-# install.sh - Mihomo 一键安装脚本
+# install.sh - Mihomo 一键安装脚本 (逻辑修复版)
 
 MIHOMO_DIR="/etc/mihomo"
 SCRIPT_DIR="${MIHOMO_DIR}/scripts"
@@ -11,14 +11,14 @@ SCRIPT_ROOT=$(cd "$(dirname "$0")"; pwd)
 
 # 检查 Root
 if [ "$(id -u)" != "0" ]; then
-    echo "请使用 root 权限运行此脚本。"
+    echo "❌ 错误: 请使用 root 权限运行此脚本。"
     exit 1
 fi
 
 # ==========================================
 # 1. 基础环境准备
 # ==========================================
-echo "📦 1. 安装系统依赖..."
+echo "📦 1. 安装/更新系统依赖..."
 apt update
 apt install -y curl wget tar gzip unzip python3 python3-pip python3-flask python3-yaml
 
@@ -40,18 +40,16 @@ cp -rf "${SCRIPT_ROOT}/scripts/"* "${SCRIPT_DIR}/"
 chmod +x "${SCRIPT_DIR}"/*.sh
 cp -rf "${SCRIPT_ROOT}/manager/"* "${MANAGER_DIR}/"
 
-# 部署模板文件 (重要)
+# 部署模板文件
 if [ -d "${SCRIPT_ROOT}/templates" ]; then
-    echo "📄 部署配置模板..."
     cp -rf "${SCRIPT_ROOT}/templates/"* "${MIHOMO_DIR}/templates/"
-else
-    echo "⚠️  警告: templates 文件夹缺失，请检查仓库完整性。"
 fi
 
 # ==========================================
-# 3. 下载/更新 Mihomo 内核 (自动判断架构)
+# 3. 下载/更新 Mihomo 内核
 # ==========================================
-echo "⬇️  3. 下载 Mihomo 内核..."
+echo "⬇️  3. 检查并下载 Mihomo 内核..."
+# 只有当内核不存在，或者用户强制重装时才下载（这里为了稳妥，每次覆盖下载）
 ARCH=$(uname -m)
 case $ARCH in
     x86_64)
@@ -66,48 +64,45 @@ case $ARCH in
         ;;
 esac
 
-# 下载并解压
 wget -O /tmp/mihomo.gz "$DOWNLOAD_URL"
 if [ $? -eq 0 ]; then
     gzip -d -f /tmp/mihomo.gz
     mv /tmp/mihomo /usr/bin/mihomo-cli
     chmod +x /usr/bin/mihomo-cli
-    echo "✅ 内核安装成功: $(/usr/bin/mihomo-cli -v)"
+    echo "✅ 内核准备就绪"
 else
-    echo "❌ 内核下载失败，请检查网络。"
+    echo "⚠️  内核下载失败，如果本地已有内核可忽略，否则服务将无法启动。"
 fi
 
 # ==========================================
-# 4. 下载/部署 UI 面板 (Zashboard)
+# 4. 下载/部署 UI 面板
 # ==========================================
 echo "⬇️  4. 部署 UI 面板..."
-# 为了防止旧文件残留，先清空
+# 总是重新下载面板，防止面板文件损坏
 rm -rf "${UI_DIR}/*"
-wget -O /tmp/ui.zip "https://github.com/Zephyruso/zashboard/archive/refs/heads/gh-pages.zip"
+wget -O /tmp/ui.zip "https://github.com/Zephyruso/zashboard/archive/refs/heads/gh-pages.zip" >/dev/null 2>&1
 
 if [ $? -eq 0 ]; then
     unzip -q -o /tmp/ui.zip -d /tmp/
-    # 移动解压后的文件到 ui 目录 (注意 zip 里的文件夹名)
     if [ -d "/tmp/zashboard-gh-pages" ]; then
         cp -r /tmp/zashboard-gh-pages/* "${UI_DIR}/"
         rm -rf /tmp/zashboard-gh-pages
     else
-        # 备用方案：有些 zip 解压后直接是文件
         cp -r /tmp/* "${UI_DIR}/" 2>/dev/null
     fi
     rm -f /tmp/ui.zip
     echo "✅ UI 面板部署完成"
 else
-    echo "❌ 面板下载失败，请检查网络。"
+    echo "⚠️  面板下载失败，Web 界面可能无法显示图表。"
 fi
 
 # ==========================================
-# 5. 配置用户与环境
+# 5. 配置用户与环境 (核心逻辑修复)
 # ==========================================
 echo "🔑 5. 配置用户凭证..."
-if [ -f "${ENV_FILE}" ]; then
-    echo "✅ 检测到现有配置文件，保留原设置。"
-else
+
+# 定义生成配置文件的函数
+generate_config() {
     echo "------------------------------------------------"
     read -p "请设置 Web 面板用户名 (默认: admin): " WEB_USER
     WEB_USER=${WEB_USER:-admin}
@@ -119,7 +114,6 @@ else
     WEB_PORT=${WEB_PORT:-7838}
     echo "------------------------------------------------"
 
-    # 生成 .env
     cat > "${ENV_FILE}" <<EOF
 WEB_USER="${WEB_USER}"
 WEB_SECRET="${WEB_SECRET}"
@@ -132,11 +126,25 @@ NOTIFY_API_URL=
 SUB_URL=
 CONFIG_MODE=expert
 EOF
-    echo "✅ 配置文件已生成。"
+    echo "✅ 配置文件已更新。"
+}
+
+# 逻辑判断
+if [ -f "${ENV_FILE}" ]; then
+    echo "检测到现有配置文件。"
+    read -p "是否需要重置用户名和密码？[y/N]: " RESET_CHOICE
+    if [[ "$RESET_CHOICE" =~ ^[Yy]$ ]]; then
+        generate_config
+    else
+        echo "✅ 跳过配置，保留现有设置。"
+    fi
+else
+    echo "检测到首次安装，开始初始化配置..."
+    generate_config
 fi
 
 # ==========================================
-# 6. 配置 Systemd 服务 (修复启动路径)
+# 6. 配置 Systemd 服务
 # ==========================================
 echo "⚙️ 6. 配置系统服务..."
 cat > /etc/systemd/system/mihomo.service <<EOF
@@ -148,7 +156,7 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=/etc/mihomo
-# 核心修复：显式指定 python3 解释器
+# 显式指定 python3
 ExecStart=/usr/bin/python3 /etc/mihomo/manager/app.py
 Restart=always
 
@@ -166,14 +174,15 @@ systemctl restart mihomo
 
 sleep 2
 if systemctl is-active --quiet mihomo; then
-    IP=$(hostname -I | awk '{print $1}')
+    # 获取端口 (兼容 grep 写法)
     PORT=$(grep WEB_PORT "${ENV_FILE}" | cut -d '=' -f2 | tr -d '"')
+    IP=$(hostname -I | awk '{print $1}')
     echo "==========================================="
-    echo "🎉 安装成功！所有组件已就绪。"
+    echo "🎉 安装成功！"
     echo "🌍 管理面板: http://${IP}:${PORT}"
-    echo "   默认用户: ${WEB_USER}"
-    echo "   默认密码: ${WEB_SECRET}"
     echo "==========================================="
 else
-    echo "❌ 服务启动失败！请运行 'systemctl status mihomo' 查看详细错误。"
+    echo "❌ 服务启动失败！请运行 'systemctl status mihomo' 排查。"
+    # 自动显示最后几行日志帮助排查
+    journalctl -u mihomo -n 5 --no-pager
 fi
