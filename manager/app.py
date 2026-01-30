@@ -146,31 +146,21 @@ def get_logs():
 def handle_settings():
     if request.method == 'GET':
         e = read_env()
-        # 处理多行 URL 里面的换行符
         sub_url_airport = e.get('SUB_URL_AIRPORT', '').replace('\\n', '\n')
         
         return jsonify({
             "web_user": e.get('WEB_USER'),
-            "web_port": e.get('WEB_PORT', '7838'), # 返回端口号给前端显示
+            "web_port": e.get('WEB_PORT', '7838'),
             
-            # 模式: 'raw' 或 'airport'
             "config_mode": e.get('CONFIG_MODE', 'airport'),
-            
-            # 两种 URL
             "sub_url_raw": e.get('SUB_URL_RAW', ''),
             "sub_url_airport": sub_url_airport,
             
-            # 通知
-            "notify_tg": e.get('NOTIFY_TG') == 'true',
-            "tg_token": e.get('TG_BOT_TOKEN', ''),
-            "tg_bot_token": e.get('TG_BOT_TOKEN', ''),
-            "tg_id": e.get('TG_CHAT_ID', ''),
-            "tg_chat_id": e.get('TG_CHAT_ID', ''),
+            # 仅 Webhook
             "notify_api": e.get('NOTIFY_API') == 'true',
             "api_url": e.get('NOTIFY_API_URL', ''),
             "notify_api_url": e.get('NOTIFY_API_URL', ''),
             
-            # 其他配置
             "local_cidr": e.get('LOCAL_CIDR', ''),
             "cron_sub_enabled": e.get('CRON_SUB_ENABLED') == 'true',
             "cron_sub_sched": e.get('CRON_SUB_SCHED', '0 5 * * *'), 
@@ -184,15 +174,11 @@ def handle_settings():
         d = request.json
         mode = d.get('config_mode', 'airport')
         
-        # 获取多行 URL 并转义
         raw_airport = d.get('sub_url_airport', '')
         if isinstance(raw_airport, list):
             raw_airport = "\n".join(raw_airport)
         escaped_airport = raw_airport.replace('\n', '\\n')
 
-        # 兼容 key
-        tg_token = d.get('tg_token') or d.get('tg_bot_token') or ''
-        tg_id = d.get('tg_id') or d.get('tg_chat_id') or ''
         api_url = d.get('api_url') or d.get('notify_api_url') or ''
         cron_sub = d.get('cron_sub_sched') or d.get('cron_sub_schedule') or '0 5 * * *'
         cron_geo = d.get('cron_geo_sched') or d.get('cron_geo_schedule') or '0 4 * * *'
@@ -202,10 +188,7 @@ def handle_settings():
             "SUB_URL_RAW": d.get('sub_url_raw', ''),
             "SUB_URL_AIRPORT": escaped_airport,
             
-            "NOTIFY_TG": str(is_true(d.get('notify_tg'))).lower(),
-            "TG_BOT_TOKEN": tg_token,
-            "TG_CHAT_ID": tg_id,
-            
+            # 仅更新 API 配置
             "NOTIFY_API": str(is_true(d.get('notify_api'))).lower(),
             "NOTIFY_API_URL": api_url,
             
@@ -218,7 +201,6 @@ def handle_settings():
             "CRON_GEO_SCHED": cron_geo
         }
         
-        # 写入 .env
         lines = []
         if os.path.exists(ENV_FILE):
             with open(ENV_FILE,'r', encoding='utf-8') as f: lines = f.readlines()
