@@ -1,5 +1,5 @@
 #!/bin/bash
-# update_subscription.sh - 订阅更新 (支持 Raw 直连 和 Airport 模板注入)
+# update_subscription.sh - 订阅更新 (Raw直连 + Airport模板注入 + 智能静默)
 
 MIHOMO_DIR="/etc/mihomo"
 ENV_FILE="${MIHOMO_DIR}/.env"
@@ -13,7 +13,7 @@ TEMP_NEW="/tmp/config_generated.yaml"
 if [ -f "$ENV_FILE" ]; then source "$ENV_FILE"; fi
 
 mkdir -p "$BACKUP_DIR"
-mkdir -p "${MIHOMO_DIR}/providers" # 确保 provider 目录存在
+mkdir -p "${MIHOMO_DIR}/providers"
 
 # --------------------------------------------------------
 # 模式 A: Raw 直连模式 (拉取完整配置)
@@ -29,6 +29,7 @@ if [ "$CONFIG_MODE" == "raw" ]; then
     
     if [ $? -ne 0 ] || [ ! -s "$TEMP_NEW" ]; then
         echo "❌ 下载失败。"
+        # 下载失败通常属于异常，建议保留通知提醒检查网络
         bash "$NOTIFY_SCRIPT" "❌ 更新失败" "无法下载 Raw 配置文件。"
         rm -f "$TEMP_NEW"
         exit 1
@@ -44,8 +45,6 @@ else
         exit 1
     fi
     
-    # 将 .env 里的转义换行符还原，处理多行 URL
-    # 如果 SUB_URL_AIRPORT 为空，提示
     if [ -z "$SUB_URL_AIRPORT" ]; then
         echo "❌ [Airport模式] 未配置机场链接。"
         exit 0
@@ -53,13 +52,16 @@ else
     
     echo "🔨 [Airport模式] 正在生成配置文件..."
     
+    # 【关键修复】导出变量，否则 Python 读不到
+    export SUB_URL_AIRPORT
+    
     # 使用 Python 动态注入 Proxy Providers
     python3 -c "
 import sys, yaml, os
 
 template_path = '$TEMPLATE_FILE'
 output_path = '$TEMP_NEW'
-# 从环境变量读取，并还原换行符
+# 读取环境变量，处理转义的换行符
 urls_raw = os.environ.get('SUB_URL_AIRPORT', '').replace('\\\\n', '\\n')
 
 def load_yaml(path):
@@ -71,7 +73,7 @@ try:
     # 1. 加载模板
     config = load_yaml(template_path)
     
-    # 2. 解析 URL 列表 (按行分割，忽略空行)
+    # 2. 解析 URL 列表
     url_list = [line.strip() for line in urls_raw.split('\n') if line.strip()]
     
     if not url_list:
@@ -79,11 +81,9 @@ try:
         sys.exit(1)
 
     # 3. 动态生成 proxy-providers
-    # 模板里可能有默认的 provider，先清空或覆盖
     providers = {}
     
     for index, url in enumerate(url_list):
-        # 生成 provider 名称: Airport_01, Airport_02...
         name = f'Airport_{index+1:02d}'
         providers[name] = {
             'type': 'http',
@@ -128,13 +128,14 @@ if [ ! -s "$TEMP_NEW" ]; then
     exit 1
 fi
 
-# 比对差异
+# 【核心逻辑】比对差异 (决定是否发通知)
 FILE_CHANGED=0
 if [ -f "$CONFIG_FILE" ]; then
     if cmp -s "$TEMP_NEW" "$CONFIG_FILE"; then
-        echo "✅ 配置无变更。"
+        echo "✅ 配置无变更，静默退出。"
+        FILE_CHANGED=0
     else
-        echo "⚠️  配置有变更。"
+        echo "⚠️  配置有变更，准备更新..."
         FILE_CHANGED=1
     fi
 else
@@ -148,8 +149,9 @@ if [ "$FILE_CHANGED" -eq 1 ]; then
     systemctl restart mihomo
     
     echo "🎉 更新完成并重启。"
-    # 这里的通知会由 cron 触发，或者手动触发
-    bash "$NOTIFY_SCRIPT" "♻️ 订阅更新成功" "模式: ${CONFIG_MODE:-airport}"
+    # 【通知逻辑】只有在这里 (文件真的变了) 才会触发通知
+    bash "$NOTIFY_SCRIPT" "♻️ 订阅更新成功" "模式: ${CONFIG_MODE:-airport} | 配置文件已更新"
 else
+    # 没变化，直接删除临时文件，不调用 notify.sh
     rm -f "$TEMP_NEW"
 fi
