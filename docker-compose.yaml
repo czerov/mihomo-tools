@@ -1,0 +1,25 @@
+services:
+  mihomo-tools:
+    image: kyleyu2024/mihomo-tools:latest
+    container_name: mihomo-tools
+    restart: always
+    privileged: true                # TUN 模式需要特权模式
+    network_mode: host              
+    volumes:
+      - ./data:/etc/mihomo          
+      - /lib/modules:/lib/modules:ro # TUN 模式可能需要内核模块
+    environment:
+      TUN_ENABLED: "false"          # 是否开启 TUN 模式（true / false）
+      WEB_USER: admin               # Web 管理面板用户名
+      WEB_SECRET: admin             # Web 管理面板密码
+      WEB_PORT: "7838"              # Web 管理面板端口
+
+      # 可选环境变量示例
+      # SUB_URL_RAW: "你的订阅链接"
+      # CONFIG_MODE: airport
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
