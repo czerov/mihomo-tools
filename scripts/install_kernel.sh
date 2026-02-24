@@ -5,7 +5,7 @@ if [ -f "/etc/mihomo/.env" ]; then source /etc/mihomo/.env; fi
 
 ARCH=$(uname -m)
 if [[ "$ARCH" == "x86_64" ]]; then
-    # 核心修改：根据 CPU 支持情况选择平台后缀
+    # 核心修改：检测指令集
     if grep -q "avx2" /proc/cpuinfo && grep -q "bmi2" /proc/cpuinfo; then
         PLATFORM="linux-amd64-v3"
     else
