@@ -1,5 +1,5 @@
 #!/bin/bash
-# install.sh - 智能指令集兼容版 (针对 PVE LXC 优化)
+# install.sh - v1.0.8 智能指令集兼容修复版
 
 MIHOMO_DIR="/etc/mihomo"
 SCRIPT_DIR="${MIHOMO_DIR}/scripts"
@@ -32,41 +32,31 @@ if [ -f "${SCRIPT_ROOT}/main.sh" ]; then
     echo "✅ 管理菜单已安装"
 fi
 
-# --- 核心修改：增加指令集手动选择逻辑 ---
+# --- 指令集检测与手动选择 ---
 LATEST_VER=$(curl -s https://api.github.com/repos/MetaCubeX/mihomo/releases/latest | grep "tag_name" | cut -d '"' -f 4)
-LATEST_VER=${LATEST_VER:-v1.18.1}
+LATEST_VER=${LATEST_VER:-v1.19.0}
 ARCH=$(uname -m)
 
-case $ARCH in
-    x86_64)
-        if grep -q "avx2" /proc/cpuinfo && grep -q "bmi2" /proc/cpuinfo; then
-            echo -e "🚀 硬件检测：CPU 理论支持 v3 指令集"
-            DEFAULT_K=1
-        else
-            echo -e "🐢 硬件检测：CPU 不支持 v3 指令集"
-            DEFAULT_K=2
-        fi
-        
-        echo "------------------------------------------------"
-        echo "请选择内核版本 (PVE LXC 报错请务必选 2):"
-        echo "1) 高性能版 (amd64-v3)"
-        echo "2) 通用兼容版 (amd64) - 最推荐"
-        echo "------------------------------------------------"
-        read -p "请输入选项 [默认 $DEFAULT_K]: " K_CHOICE
-        K_CHOICE=${K_CHOICE:-$DEFAULT_K}
-
-        if [ "$K_CHOICE" == "1" ]; then
-            PLATFORM="amd64-v3"
-        else
-            PLATFORM="amd64"
-        fi
-        URL="https://github.com/MetaCubeX/mihomo/releases/download/${LATEST_VER}/mihomo-linux-${PLATFORM}-${LATEST_VER}.gz"
-        ;;
-    aarch64)
-        URL="https://github.com/MetaCubeX/mihomo/releases/download/${LATEST_VER}/mihomo-linux-arm64-${LATEST_VER}.gz"
-        ;;
-    *) echo "❌ 不支持的架构"; exit 1 ;;
-esac
+if [ "$ARCH" == "x86_64" ]; then
+    if grep -q "avx2" /proc/cpuinfo && grep -q "bmi2" /proc/cpuinfo; then
+        echo "🚀 硬件检测：支持 v3 指令集"
+        DEF_K=1
+    else
+        echo "🐢 硬件检测：不支持 v3 指令集"
+        DEF_K=2
+    fi
+    echo "------------------------------------------------"
+    echo "请选择内核版本 (PVE LXC 报错请务必选 2):"
+    echo "1) 高性能版 (amd64-v3)"
+    echo "2) 通用兼容版 (amd64) - 最推荐"
+    echo "------------------------------------------------"
+    read -p "请输入选项 [默认 $DEF_K]: " K_CHOICE
+    K_CHOICE=${K_CHOICE:-$DEF_K}
+    [ "$K_CHOICE" == "1" ] && PLAT="amd64-v3" || PLAT="amd64"
+    URL="https://github.com/MetaCubeX/mihomo/releases/download/${LATEST_VER}/mihomo-linux-${PLAT}-${LATEST_VER}.gz"
+else
+    URL="https://github.com/MetaCubeX/mihomo/releases/download/${LATEST_VER}/mihomo-linux-arm64-${LATEST_VER}.gz"
+fi
 
 wget -O /tmp/mihomo.gz "$URL" && gzip -d -f /tmp/mihomo.gz && mv /tmp/mihomo /usr/bin/mihomo-core && chmod +x /usr/bin/mihomo-core
 
@@ -74,7 +64,37 @@ wget -O /tmp/mihomo.gz "$URL" && gzip -d -f /tmp/mihomo.gz && mv /tmp/mihomo /us
 rm -rf "${UI_DIR}/*"
 wget -O /tmp/ui.zip "https://github.com/Zephyruso/zashboard/archive/refs/heads/gh-pages.zip" >/dev/null 2>&1 && unzip -q -o /tmp/ui.zip -d /tmp/ && cp -r /tmp/zashboard-gh-pages/* "${UI_DIR}/" && rm -rf /tmp/ui*
 
-# === 注册服务 ===
+# === 4. 配置账户 (静默默认) ===
+WEB_USER="admin"
+WEB_SECRET="admin"
+WEB_PORT="7838"
+
+cat > "${ENV_FILE}" <<EOF
+WEB_USER="${WEB_USER}"
+WEB_SECRET="${WEB_SECRET}"
+WEB_PORT="${WEB_PORT}"
+CONFIG_MODE="airport"
+EOF
+
+# === 5. 注册并强制生成服务文件 ===
+echo "⚙️ 5. 注册服务..."
+
+# 创建管理面板服务
+cat > /etc/systemd/system/mihomo-manager.service <<EOF
+[Unit]
+Description=Mihomo Web Manager
+After=network.target
+[Service]
+Type=simple
+User=root
+WorkingDirectory=${MANAGER_DIR}
+ExecStart=/usr/bin/python3 ${MANAGER_DIR}/app.py
+Restart=always
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# 创建核心服务
 cat > /etc/systemd/system/mihomo.service <<EOF
 [Unit]
 Description=Mihomo Core
@@ -88,11 +108,13 @@ Restart=always
 WantedBy=multi-user.target
 EOF
 
+# === 6. 系统初始化与启动 ===
+echo "🔧 6. 系统网络优化..."
 systemctl daemon-reload
 systemctl enable mihomo-manager mihomo
 systemctl restart mihomo-manager mihomo
 
 IP=$(hostname -I | awk '{print $1}')
 echo "========================================"
-echo "🎉 安装完成！面板地址: http://${IP}:${WEB_PORT:-7838}"
+echo "🎉 安装完成！面板地址: http://${IP}:${WEB_PORT}"
 echo "========================================"
