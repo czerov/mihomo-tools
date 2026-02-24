@@ -1,5 +1,5 @@
 #!/bin/bash
-# install.sh - v1.0.7 智能指令集兼容版
+# install.sh - 智能指令集兼容版 (针对 PVE LXC 优化)
 
 MIHOMO_DIR="/etc/mihomo"
 SCRIPT_DIR="${MIHOMO_DIR}/scripts"
@@ -32,21 +32,35 @@ if [ -f "${SCRIPT_ROOT}/main.sh" ]; then
     echo "✅ 管理菜单已安装"
 fi
 
-# --- 核心修改：指令集自动检测 ---
+# --- 核心修改：增加指令集手动选择逻辑 ---
 LATEST_VER=$(curl -s https://api.github.com/repos/MetaCubeX/mihomo/releases/latest | grep "tag_name" | cut -d '"' -f 4)
 LATEST_VER=${LATEST_VER:-v1.18.1}
 ARCH=$(uname -m)
 
 case $ARCH in
     x86_64)
-        # 检测是否支持 AVX2 和 BMI2 (v3 标准)
         if grep -q "avx2" /proc/cpuinfo && grep -q "bmi2" /proc/cpuinfo; then
-            echo "🚀 检测到 CPU 支持 v3 指令集 (AVX2)，正在下载高性能版..."
-            URL="https://github.com/MetaCubeX/mihomo/releases/download/${LATEST_VER}/mihomo-linux-amd64-v3-${LATEST_VER}.gz"
+            echo -e "🚀 硬件检测：CPU 理论支持 v3 指令集"
+            DEFAULT_K=1
         else
-            echo "🐢 CPU 不支持 v3 指令集，正在下载通用兼容版 (amd64)..."
-            URL="https://github.com/MetaCubeX/mihomo/releases/download/${LATEST_VER}/mihomo-linux-amd64-${LATEST_VER}.gz"
+            echo -e "🐢 硬件检测：CPU 不支持 v3 指令集"
+            DEFAULT_K=2
         fi
+        
+        echo "------------------------------------------------"
+        echo "请选择内核版本 (PVE LXC 报错请务必选 2):"
+        echo "1) 高性能版 (amd64-v3)"
+        echo "2) 通用兼容版 (amd64) - 最推荐"
+        echo "------------------------------------------------"
+        read -p "请输入选项 [默认 $DEFAULT_K]: " K_CHOICE
+        K_CHOICE=${K_CHOICE:-$DEFAULT_K}
+
+        if [ "$K_CHOICE" == "1" ]; then
+            PLATFORM="amd64-v3"
+        else
+            PLATFORM="amd64"
+        fi
+        URL="https://github.com/MetaCubeX/mihomo/releases/download/${LATEST_VER}/mihomo-linux-${PLATFORM}-${LATEST_VER}.gz"
         ;;
     aarch64)
         URL="https://github.com/MetaCubeX/mihomo/releases/download/${LATEST_VER}/mihomo-linux-arm64-${LATEST_VER}.gz"
@@ -54,67 +68,13 @@ case $ARCH in
     *) echo "❌ 不支持的架构"; exit 1 ;;
 esac
 
-wget -O /tmp/mihomo.gz "$URL" >/dev/null 2>&1 && gzip -d -f /tmp/mihomo.gz && mv /tmp/mihomo /usr/bin/mihomo-core && chmod +x /usr/bin/mihomo-core
+wget -O /tmp/mihomo.gz "$URL" && gzip -d -f /tmp/mihomo.gz && mv /tmp/mihomo /usr/bin/mihomo-core && chmod +x /usr/bin/mihomo-core
 
 # 下载面板
 rm -rf "${UI_DIR}/*"
 wget -O /tmp/ui.zip "https://github.com/Zephyruso/zashboard/archive/refs/heads/gh-pages.zip" >/dev/null 2>&1 && unzip -q -o /tmp/ui.zip -d /tmp/ && cp -r /tmp/zashboard-gh-pages/* "${UI_DIR}/" && rm -rf /tmp/ui*
 
-# === 配置向导 ===
-echo "🔑 4. 配置账户..."
-if [ -f "${ENV_FILE}" ]; then
-    eval $(grep -E '^[A-Z_]+=' "${ENV_FILE}" | sed 's/^/export /') >/dev/null 2>&1
-    CUR_USER=${WEB_USER:-admin}
-    CUR_PORT=${WEB_PORT:-7838}
-    echo "检测到配置: 用户=$CUR_USER, 端口=$CUR_PORT"
-    read -p "是否保留现有配置？(Y/n) [默认: Y]: " KEEP
-    KEEP=${KEEP:-Y}
-else
-    KEEP="n"
-fi
-
-if [[ "$KEEP" =~ ^[Nn]$ ]]; then
-    read -p "用户名 [admin]: " IN_USER; WEB_USER=${IN_USER:-admin}
-    read -p "密码 [admin]: " IN_PASS; WEB_SECRET=${IN_PASS:-admin}
-    read -p "端口 [7838]: " IN_PORT; WEB_PORT=${IN_PORT:-7838}
-else
-    WEB_USER=${WEB_USER:-admin}
-    WEB_SECRET=${WEB_SECRET:-admin}
-    WEB_PORT=${WEB_PORT:-7838}
-fi
-
-# 写入配置
-cat > "${ENV_FILE}" <<EOF
-WEB_USER="${WEB_USER}"
-WEB_SECRET="${WEB_SECRET}"
-WEB_PORT="${WEB_PORT}"
-CONFIG_MODE="${CONFIG_MODE:-airport}"
-SUB_URL_RAW="${SUB_URL_RAW:-}"
-SUB_URL_AIRPORT="${SUB_URL_AIRPORT:-}"
-LOCAL_CIDR="${LOCAL_CIDR:-}"
-NOTIFY_API="${NOTIFY_API:-false}"
-NOTIFY_API_URL="${NOTIFY_API_URL:-}"
-CRON_SUB_ENABLED="${CRON_SUB_ENABLED:-false}"
-CRON_SUB_SCHED="${CRON_SUB_SCHED:-0 5 * * *}"
-CRON_GEO_ENABLED="${CRON_GEO_ENABLED:-false}"
-CRON_GEO_SCHED="${CRON_GEO_SCHED:-0 4 * * *}"
-EOF
-
 # === 注册服务 ===
-echo "⚙️ 5. 注册服务..."
-cat > /etc/systemd/system/mihomo-manager.service <<EOF
-[Unit]
-Description=Mihomo Web Manager
-After=network.target
-[Service]
-Type=simple
-User=root
-ExecStart=/usr/bin/python3 /etc/mihomo/manager/app.py
-Restart=always
-[Install]
-WantedBy=multi-user.target
-EOF
-
 cat > /etc/systemd/system/mihomo.service <<EOF
 [Unit]
 Description=Mihomo Core
@@ -128,30 +88,11 @@ Restart=always
 WantedBy=multi-user.target
 EOF
 
-cat > /etc/systemd/system/force-ip-forward.service <<EOF
-[Unit]
-Description=Force Enable IPv4 Forwarding for Mihomo
-After=network.target
-[Service]
-Type=oneshot
-ExecStart=/sbin/sysctl -w net.ipv4.ip_forward=1
-RemainAfterExit=yes
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# === 系统初始化 ===
-echo "🔧 6. 系统网络优化..."
 systemctl daemon-reload
-systemctl enable mihomo-manager mihomo force-ip-forward
-
-if [ -f "${SCRIPT_DIR}/gateway_init.sh" ]; then
-    bash "${SCRIPT_DIR}/gateway_init.sh" || echo "⚠️ 警告：网络初始化遇到非致命错误。"
-fi
-
-systemctl restart mihomo-manager mihomo force-ip-forward
+systemctl enable mihomo-manager mihomo
+systemctl restart mihomo-manager mihomo
 
 IP=$(hostname -I | awk '{print $1}')
 echo "========================================"
-echo "🎉 安装完成！面板地址: http://${IP}:${WEB_PORT}"
+echo "🎉 安装完成！面板地址: http://${IP}:${WEB_PORT:-7838}"
 echo "========================================"
