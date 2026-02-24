@@ -60,5 +60,98 @@ wget -O /tmp/mihomo.gz "$URL" >/dev/null 2>&1 && gzip -d -f /tmp/mihomo.gz && mv
 rm -rf "${UI_DIR}/*"
 wget -O /tmp/ui.zip "https://github.com/Zephyruso/zashboard/archive/refs/heads/gh-pages.zip" >/dev/null 2>&1 && unzip -q -o /tmp/ui.zip -d /tmp/ && cp -r /tmp/zashboard-gh-pages/* "${UI_DIR}/" && rm -rf /tmp/ui*
 
-# === 配置向导 (略，保持原样) ===
-# ... [此处保留你原有的配置向导、注册服务、系统初始化代码] ...
+# === 配置向导 ===
+echo "🔑 4. 配置账户..."
+if [ -f "${ENV_FILE}" ]; then
+    eval $(grep -E '^[A-Z_]+=' "${ENV_FILE}" | sed 's/^/export /') >/dev/null 2>&1
+    CUR_USER=${WEB_USER:-admin}
+    CUR_PORT=${WEB_PORT:-7838}
+    echo "检测到配置: 用户=$CUR_USER, 端口=$CUR_PORT"
+    read -p "是否保留现有配置？(Y/n) [默认: Y]: " KEEP
+    KEEP=${KEEP:-Y}
+else
+    KEEP="n"
+fi
+
+if [[ "$KEEP" =~ ^[Nn]$ ]]; then
+    read -p "用户名 [admin]: " IN_USER; WEB_USER=${IN_USER:-admin}
+    read -p "密码 [admin]: " IN_PASS; WEB_SECRET=${IN_PASS:-admin}
+    read -p "端口 [7838]: " IN_PORT; WEB_PORT=${IN_PORT:-7838}
+else
+    WEB_USER=${WEB_USER:-admin}
+    WEB_SECRET=${WEB_SECRET:-admin}
+    WEB_PORT=${WEB_PORT:-7838}
+fi
+
+# 写入配置
+cat > "${ENV_FILE}" <<EOF
+WEB_USER="${WEB_USER}"
+WEB_SECRET="${WEB_SECRET}"
+WEB_PORT="${WEB_PORT}"
+CONFIG_MODE="${CONFIG_MODE:-airport}"
+SUB_URL_RAW="${SUB_URL_RAW:-}"
+SUB_URL_AIRPORT="${SUB_URL_AIRPORT:-}"
+LOCAL_CIDR="${LOCAL_CIDR:-}"
+NOTIFY_API="${NOTIFY_API:-false}"
+NOTIFY_API_URL="${NOTIFY_API_URL:-}"
+CRON_SUB_ENABLED="${CRON_SUB_ENABLED:-false}"
+CRON_SUB_SCHED="${CRON_SUB_SCHED:-0 5 * * *}"
+CRON_GEO_ENABLED="${CRON_GEO_ENABLED:-false}"
+CRON_GEO_SCHED="${CRON_GEO_SCHED:-0 4 * * *}"
+EOF
+
+# === 注册服务 ===
+echo "⚙️ 5. 注册服务..."
+cat > /etc/systemd/system/mihomo-manager.service <<EOF
+[Unit]
+Description=Mihomo Web Manager
+After=network.target
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/python3 /etc/mihomo/manager/app.py
+Restart=always
+[Install]
+WantedBy=multi-user.target
+EOF
+
+cat > /etc/systemd/system/mihomo.service <<EOF
+[Unit]
+Description=Mihomo Core
+After=network.target
+[Service]
+Type=simple
+User=root
+ExecStart=/bin/bash -c "/usr/bin/mihomo-core -d /etc/mihomo > /var/log/mihomo.log 2>&1"
+Restart=always
+[Install]
+WantedBy=multi-user.target
+EOF
+
+cat > /etc/systemd/system/force-ip-forward.service <<EOF
+[Unit]
+Description=Force Enable IPv4 Forwarding for Mihomo
+After=network.target
+[Service]
+Type=oneshot
+ExecStart=/sbin/sysctl -w net.ipv4.ip_forward=1
+RemainAfterExit=yes
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# === 系统初始化 ===
+echo "🔧 6. 系统网络优化..."
+systemctl daemon-reload
+systemctl enable mihomo-manager mihomo force-ip-forward
+
+if [ -f "${SCRIPT_DIR}/gateway_init.sh" ]; then
+    bash "${SCRIPT_DIR}/gateway_init.sh" || echo "⚠️ 警告：网络初始化遇到非致命错误。"
+fi
+
+systemctl restart mihomo-manager mihomo force-ip-forward
+
+IP=$(hostname -I | awk '{print $1}')
+echo "========================================"
+echo "🎉 安装完成！面板地址: http://${IP}:${WEB_PORT}"
+echo "========================================"
