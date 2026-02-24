@@ -1,12 +1,10 @@
 #!/bin/bash
-# main.sh - Mihomo 命令行管理工具 v1.0.3
-# 安装路径: /usr/bin/mihomo
+# main.sh - Mihomo 命令行管理工具 v1.0.4 智能更新版
 
 MIHOMO_DIR="/etc/mihomo"
 SCRIPT_DIR="${MIHOMO_DIR}/scripts"
 ENV_FILE="${MIHOMO_DIR}/.env"
 LOG_FILE="/var/log/mihomo.log"
-
 SVC_CORE="mihomo.service"
 SVC_MANAGER="mihomo-manager.service"
 CORE_BIN="/usr/bin/mihomo-core"
@@ -29,11 +27,8 @@ view_log() {
     [ -f "$LOG_FILE" ] && tail -f -n 50 "$LOG_FILE" || echo -e "${YELLOW}日志不存在${NC}"
 }
 
-# === 核心修复：自动更新到最新版 ===
 update_kernel() {
     echo "🔍 正在检查 GitHub 最新版本..."
-    
-    # 动态获取 tag
     LATEST_VER=$(curl -s https://api.github.com/repos/MetaCubeX/mihomo/releases/latest | grep "tag_name" | cut -d '"' -f 4)
     
     if [ -z "$LATEST_VER" ]; then
@@ -45,7 +40,16 @@ update_kernel() {
 
     ARCH=$(uname -m)
     case $ARCH in
-        x86_64) URL="https://github.com/MetaCubeX/mihomo/releases/download/${LATEST_VER}/mihomo-linux-amd64-${LATEST_VER}.gz" ;;
+        x86_64) 
+            # 核心修改：自动识别指令集
+            if grep -q "avx2" /proc/cpuinfo && grep -q "bmi2" /proc/cpuinfo; then
+                echo -e "${GREEN}🚀 检测到支持 v3 指令集${NC}"
+                URL="https://github.com/MetaCubeX/mihomo/releases/download/${LATEST_VER}/mihomo-linux-amd64-v3-${LATEST_VER}.gz"
+            else
+                echo -e "${YELLOW}ℹ️  CPU 不支持 v3，使用通用 amd64 版本${NC}"
+                URL="https://github.com/MetaCubeX/mihomo/releases/download/${LATEST_VER}/mihomo-linux-amd64-${LATEST_VER}.gz"
+            fi
+            ;;
         aarch64) URL="https://github.com/MetaCubeX/mihomo/releases/download/${LATEST_VER}/mihomo-linux-arm64-${LATEST_VER}.gz" ;;
         *) echo "不支持架构: $ARCH"; return ;;
     esac
@@ -93,26 +97,18 @@ show_menu() {
     echo -e " 运行状态: $(check_status)"
     echo -e " 内核版本: $(get_version)"
     echo -e "${BLUE}-------------------------------------------${NC}"
-    echo -e " 1. 更新/修复 Mihomo 内核 (Update Core)"
+    echo -e " 1. 更新/修复 Mihomo 内核"
     echo -e " 2. 服务管理 (启动/停止/重启)"
-    echo -e " 3. 配置与订阅 (设置链接/手动配置)"
+    echo -e " 3. 配置与订阅"
     echo -e " 4. 查看实时日志"
-    echo -e " 5. 自动化任务 (Crontab)"
+    echo -e " 5. 自动化任务"
     echo -e " 6. 更新 Geo 数据库"
     echo -e " 7. 通知的配置与测试"
-    echo -e " 8. 初始化网关网络 (Tun)"
+    echo -e " 8. 初始化网关网络"
     echo -e " 9. 查看面板信息"
     echo -e "${RED}10. 卸载 Mihomo 工具箱${NC}"
     echo -e " 0. 退出脚本"
-    echo -e "${BLUE}===========================================${NC}"
 }
-
-case $1 in
-    start) systemctl start $SVC_MANAGER $SVC_CORE; exit ;;
-    stop) systemctl stop $SVC_MANAGER $SVC_CORE; exit ;;
-    restart) systemctl restart $SVC_MANAGER $SVC_CORE; exit ;;
-    log) view_log; exit ;;
-esac
 
 while true; do
     show_menu
